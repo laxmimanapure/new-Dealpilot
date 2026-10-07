@@ -1,5 +1,6 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const fs = require('fs');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -16,6 +17,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const { seedDatabase } = require('./seed');
 
@@ -27,6 +29,15 @@ app.use(cors());
 // Support large image payloads (Base64 file uploads & camera captures up to 50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Serve static uploaded images persistently from uploads folder
+const uploadsPath1 = path.resolve(__dirname, '../uploads');
+const uploadsPath2 = path.resolve(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsPath1)) fs.mkdirSync(uploadsPath1, { recursive: true });
+if (!fs.existsSync(uploadsPath2)) fs.mkdirSync(uploadsPath2, { recursive: true });
+
+app.use('/uploads', express.static(uploadsPath1));
+app.use('/uploads', express.static(uploadsPath2));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -47,6 +58,7 @@ app.use('/api/seller', sellerRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api', uploadRoutes);
 app.use('/api', searchRoutes);
 app.use('/api', orderRoutes);
 

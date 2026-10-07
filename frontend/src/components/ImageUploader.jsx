@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../api/axios';
 import { Upload, Camera, Link as LinkIcon, X, Check, RefreshCw, Image as ImageIcon } from 'lucide-react';
 
 export default function ImageUploader({ value, onChange }) {
@@ -6,6 +7,7 @@ export default function ImageUploader({ value, onChange }) {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -68,9 +70,30 @@ export default function ImageUploader({ value, onChange }) {
     }
   };
 
-  const compressImage = (imageSrc, callback) => {
+  // Upload image data URL to backend server to get persistent static URL
+  const uploadImageToServer = async (dataUrl) => {
+    setUploading(true);
+    try {
+      const res = await api.post('/upload', { image: dataUrl });
+      if (res.data && res.data.imageUrl) {
+        onChange(res.data.imageUrl);
+        return res.data.imageUrl;
+      }
+    } catch (err) {
+      console.warn('Backend image upload endpoint error, falling back to data URL:', err);
+      onChange(dataUrl);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Helper function to compress/resize image on canvas
+  const compressAndUpload = (imageSrc) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Do NOT set crossOrigin for data URIs as it causes security/cors issues in Chrome
+    if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = imageSrc;
     img.onload = () => {
       const canvas = canvasRef.current || document.createElement('canvas');
@@ -94,11 +117,16 @@ export default function ImageUploader({ value, onChange }) {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      callback(compressedDataUrl);
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      uploadImageToServer(compressedDataUrl);
+    };
+
+    img.onerror = () => {
+      uploadImageToServer(imageSrc);
     };
   };
 
+  // File Upload Handler
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -110,13 +138,12 @@ export default function ImageUploader({ value, onChange }) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      compressImage(event.target.result, (compressedDataUrl) => {
-        onChange(compressedDataUrl);
-      });
+      compressAndUpload(event.target.result);
     };
     reader.readAsDataURL(file);
   };
 
+  // Camera Capture Handler
   const takePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
@@ -129,12 +156,20 @@ export default function ImageUploader({ value, onChange }) {
 
     setCapturedPhoto(dataUrl);
     stopCamera();
-    onChange(dataUrl);
+    uploadImageToServer(dataUrl);
   };
 
   const retakePhoto = () => {
     setCapturedPhoto(null);
     startCamera();
+  };
+
+  const resolvePreviewUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads/')) {
+      return `http://localhost:5000${url}`;
+    }
+    return url;
   };
 
   return (
@@ -188,14 +223,20 @@ export default function ImageUploader({ value, onChange }) {
             className="hidden"
           />
           <div
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !uploading && fileInputRef.current?.click()}
             className="border-2 border-dashed border-slate-200 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-4 text-center cursor-pointer transition-all space-y-2 group"
           >
             <div className="w-10 h-10 rounded-xl bg-white text-blue-600 flex items-center justify-center mx-auto shadow-2xs group-hover:scale-110 transition-transform">
-              <Upload className="w-5 h-5" />
+              {uploading ? (
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Upload className="w-5 h-5" />
+              )}
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-800">Click to select image file from computer/device</p>
+              <p className="text-xs font-bold text-slate-800">
+                {uploading ? 'Uploading image to server...' : 'Click to select image file from computer/device'}
+              </p>
               <p className="text-[10px] text-slate-400">Supports PNG, JPG, JPEG, WEBP</p>
             </div>
           </div>
@@ -222,7 +263,7 @@ export default function ImageUploader({ value, onChange }) {
                 <img src={capturedPhoto} alt="Captured product" className="w-full h-full object-cover" />
                 <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center space-x-1">
                   <Check className="w-3 h-3" />
-                  <span>Photo Captured</span>
+                  <span>Photo Saved to Server</span>
                 </div>
               </div>
               <button
@@ -303,7 +344,7 @@ export default function ImageUploader({ value, onChange }) {
         <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 overflow-hidden">
             <img
-              src={value}
+              src={resolvePreviewUrl(value)}
               alt="Selected Preview"
               className="w-12 h-12 object-cover rounded-xl border border-slate-200 shrink-0"
               onError={(e) => {
@@ -312,10 +353,10 @@ export default function ImageUploader({ value, onChange }) {
             />
             <div className="truncate">
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 inline-block">
-                ✓ Image Selected
+                ✓ Image Saved
               </span>
-              <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                {value.startsWith('data:') ? 'Local Image File / Camera Capture' : value}
+              <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
+                {value}
               </p>
             </div>
           </div>

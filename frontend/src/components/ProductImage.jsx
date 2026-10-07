@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Laptop, Mouse, Headphones, Armchair, Printer, Coffee, FileText, Monitor, PenTool } from 'lucide-react';
 
+export function resolveImageUrl(src) {
+  if (!src || typeof src !== 'string') return '';
+  if (src.startsWith('/uploads/')) {
+    // Relative upload path - resolve to backend server URL
+    return `http://localhost:5000${src}`;
+  }
+  return src;
+}
+
 export function getProductFallbackImage(name = '', category = '') {
   const n = (name || '').toLowerCase().trim();
   const c = (category || '').toLowerCase().trim();
 
   // 1. Specific Stationery Items
   if (n.includes('pencil')) {
+    return 'https://images.unsplash.com/photo-1585336261026-8f5786372966?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('eraser') || n.includes('rubber')) {
     return 'https://images.unsplash.com/photo-1585336261026-8f5786372966?w=800&auto=format&fit=crop&q=80';
   }
   if (n.includes('pen') || n.includes('ballpoint') || n.includes('marker') || n.includes('highlighter')) {
@@ -62,30 +74,25 @@ export default function ProductImage({
   containerClassName = 'relative overflow-hidden bg-slate-100'
 }) {
   const [hasError, setHasError] = useState(false);
-  const [triedFallbackUrl, setTriedFallbackUrl] = useState(false);
 
-  // Check if image src is missing or if it was assigned the old generic book image for a pencil
-  const computedFallback = getProductFallbackImage(name, category);
-  const isGenericBookForPencil = name.toLowerCase().includes('pencil') && src?.includes('photo-1544716278-ca5e3f4abd8c');
-  
-  const initialSrc = (!src || isGenericBookForPencil) ? computedFallback : src;
-  const [currentSrc, setCurrentSrc] = useState(initialSrc);
+  // If a valid src exists, use it directly (resolving relative /uploads/ URLs to server host)
+  // ONLY if src is genuinely missing, use getProductFallbackImage(name, category)
+  const resolvedSrc = src ? resolveImageUrl(src) : getProductFallbackImage(name, category);
+  const [currentSrc, setCurrentSrc] = useState(resolvedSrc);
 
   useEffect(() => {
-    const freshSrc = (!src || isGenericBookForPencil) ? computedFallback : src;
+    const freshSrc = src ? resolveImageUrl(src) : getProductFallbackImage(name, category);
     setCurrentSrc(freshSrc);
     setHasError(false);
   }, [src, name, category]);
 
   const handleError = () => {
-    if (!triedFallbackUrl) {
-      setTriedFallbackUrl(true);
-      if (computedFallback !== currentSrc) {
-        setCurrentSrc(computedFallback);
-        return;
-      }
+    const fallback = getProductFallbackImage(name, category);
+    if (currentSrc !== fallback) {
+      setCurrentSrc(fallback);
+    } else {
+      setHasError(true);
     }
-    setHasError(true);
   };
 
   const renderVectorFallback = () => {

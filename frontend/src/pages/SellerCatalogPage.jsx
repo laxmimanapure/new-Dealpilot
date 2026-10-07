@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import ProductImage from '../components/ProductImage';
+import ImageUploader from '../components/ImageUploader';
 import { Package, Plus, Settings, Trash2, CheckCircle2, AlertTriangle, Save, ShieldCheck, Image as ImageIcon } from 'lucide-react';
 
 export default function SellerCatalogPage() {
@@ -23,15 +24,6 @@ export default function SellerCatalogPage() {
     moq: 5,
     standard_lead_time_days: 3
   });
-
-  const sampleImagePresets = [
-    { label: 'Keyboard', url: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Mouse', url: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Headset', url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Chair', url: 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Laptop', url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Printer', url: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=800&auto=format&fit=crop&q=80' }
-  ];
 
   useEffect(() => {
     fetchCatalogData();
@@ -95,7 +87,7 @@ export default function SellerCatalogPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Products & Catalog Controls</h1>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Manage product inventory, product images, list prices, and AI policy negotiation boundaries
+            Manage product inventory, upload product images (via file or camera), set list prices, and AI policy negotiation boundaries
           </p>
         </div>
 
@@ -267,34 +259,16 @@ export default function SellerCatalogPage() {
                 </div>
               </div>
 
-              {/* Product Image URL Field & Presets */}
-              <div className="space-y-2 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+              {/* Advanced Image Uploader with File Upload & Live Camera Capture */}
+              <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-2">
                 <label className="block font-bold text-slate-800 flex items-center space-x-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Product Image URL</span>
+                  <span>Product Image (File, Camera, or Link)</span>
                 </label>
-                <input
-                  type="url"
+                <ImageUploader
                   value={newProduct.imageUrl}
-                  onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                  placeholder="https://images.unsplash.com/... (or choose preset below)"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:border-blue-500"
+                  onChange={(imgUrl) => setNewProduct({ ...newProduct, imageUrl: imgUrl })}
                 />
-                <div className="text-[10px] text-slate-400">
-                  Quick Image Presets:
-                </div>
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {sampleImagePresets.map((preset) => (
-                    <button
-                      type="button"
-                      key={preset.label}
-                      onClick={() => setNewProduct({ ...newProduct, imageUrl: preset.url })}
-                      className="px-2.5 py-1 bg-white border border-slate-200 hover:border-blue-400 rounded-lg text-[10px] font-bold text-slate-700 shadow-2xs transition-colors"
-                    >
-                      + {preset.label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

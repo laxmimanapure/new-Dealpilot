@@ -1,7 +1,22 @@
 import axios from 'axios';
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
-const baseURL = (rawApiUrl && (rawApiUrl.startsWith('http') || rawApiUrl.startsWith('/'))) ? rawApiUrl : '/api';
+
+// Base API URL for Axios requests
+export const baseURL = (rawApiUrl && (rawApiUrl.startsWith('http') || rawApiUrl.startsWith('/'))) ? rawApiUrl : '/api';
+
+// Helper function to resolve backend server host origin for static files/uploads
+export function getBackendHost() {
+  if (rawApiUrl && rawApiUrl.startsWith('http')) {
+    try {
+      const urlObj = new URL(rawApiUrl);
+      return urlObj.origin;
+    } catch (e) {
+      return '';
+    }
+  }
+  return '';
+}
 
 const api = axios.create({
   baseURL,

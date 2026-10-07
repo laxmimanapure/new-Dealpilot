@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { getBackendHost } from '../api/axios';
 import { Package, Laptop, Mouse, Headphones, Armchair, Printer, Coffee, FileText, Monitor, PenTool } from 'lucide-react';
 
 export function resolveImageUrl(src) {
   if (!src || typeof src !== 'string') return '';
   if (src.startsWith('/uploads/')) {
-    const rawApiUrl = import.meta.env.VITE_API_URL || '';
-    if (rawApiUrl.startsWith('http')) {
-      try {
-        const urlObj = new URL(rawApiUrl);
-        return `${urlObj.origin}${src}`;
-      } catch (e) {
-        return src;
-      }
+    const backendHost = getBackendHost();
+    if (backendHost) {
+      return `${backendHost}${src}`;
     }
     return src;
   }

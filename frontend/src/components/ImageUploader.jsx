@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Camera, Link as LinkIcon, X, Check, RefreshCw, Image as ImageIcon } from 'lucide-react';
 
-export default function ImageUploader({ value, onChange, onPresetSelect }) {
+export default function ImageUploader({ value, onChange }) {
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'camera' | 'url'
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -13,15 +13,17 @@ export default function ImageUploader({ value, onChange, onPresetSelect }) {
   const fileInputRef = useRef(null);
 
   const sampleImagePresets = [
-    { label: 'Keyboard', url: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Mouse', url: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Headset', url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Chair', url: 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Laptop', url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Printer', url: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=800&auto=format&fit=crop&q=80' }
+    { label: 'Pencil ✏️', url: 'https://images.unsplash.com/photo-1585336261026-8f5786372966?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Pen 🖋️', url: 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Notebook 📓', url: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Keyboard ⌨️', url: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Mouse 🖱️', url: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Headset 🎧', url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Chair 🪑', url: 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Laptop 💻', url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Printer 🖨️', url: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=800&auto=format&fit=crop&q=80' }
   ];
 
-  // Stop camera stream on unmount or tab change
   useEffect(() => {
     return () => {
       stopCamera();
@@ -66,7 +68,6 @@ export default function ImageUploader({ value, onChange, onPresetSelect }) {
     }
   };
 
-  // Helper function to compress/resize images using canvas
   const compressImage = (imageSrc, callback) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -98,7 +99,6 @@ export default function ImageUploader({ value, onChange, onPresetSelect }) {
     };
   };
 
-  // File Upload Handler
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -117,7 +117,6 @@ export default function ImageUploader({ value, onChange, onPresetSelect }) {
     reader.readAsDataURL(file);
   };
 
-  // Camera Capture Handler
   const takePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;

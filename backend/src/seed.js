@@ -10,6 +10,67 @@ const Order = require('./models/Order');
 const AuditLog = require('./models/AuditLog');
 const { processRequirementMatchingAndNegotiation } = require('./services/negotiationEngine');
 
+// Curated image lookup matching product names and categories
+function getDefaultProductImage(name = '', category = '') {
+  const n = name.toLowerCase();
+  const c = category.toLowerCase();
+
+  if (n.includes('keyboard') || c.includes('peripheral') && n.includes('key')) {
+    return 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('mouse') || c.includes('peripheral') && n.includes('mou')) {
+    return 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('headset') || n.includes('headphone') || c.includes('audio')) {
+    return 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('chair') || c.includes('furniture')) {
+    return 'https://images.unsplash.com/photo-1580481072645-022f9a6d8310?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('laptop') || n.includes('macbook') || c.includes('computer')) {
+    return 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('printer') || n.includes('ink') || c.includes('print')) {
+    return 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('coffee') || n.includes('bean') || c.includes('beverage')) {
+    return 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('notebook') || n.includes('pen') || n.includes('paper') || c.includes('stationery')) {
+    return 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80';
+  }
+  if (n.includes('monitor') || n.includes('screen') || c.includes('display')) {
+    return 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800&auto=format&fit=crop&q=80';
+  }
+
+  // Fallback hardware/office tech image
+  return 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop&q=80';
+}
+
+// Automatically update existing products in database that lack an image URL
+async function ensureProductImages() {
+  try {
+    const productsWithoutImage = await Product.find({
+      $or: [
+        { imageUrl: { $exists: false } },
+        { imageUrl: '' },
+        { imageUrl: null }
+      ]
+    });
+
+    if (productsWithoutImage.length > 0) {
+      console.log(`🖼️ Updating ${productsWithoutImage.length} existing products with matching image URLs...`);
+      for (const prod of productsWithoutImage) {
+        prod.imageUrl = getDefaultProductImage(prod.name, prod.category);
+        await prod.save();
+      }
+      console.log(`✅ Product images updated in MongoDB.`);
+    }
+  } catch (err) {
+    console.error('Error in ensureProductImages:', err.message);
+  }
+}
+
 async function seedDatabase(shouldCloseConnection = false) {
   try {
     const passwordHash = await bcrypt.hash('password123', 10);
@@ -45,8 +106,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerA._id,
         name: 'Mechanical Ergonomic Keyboard',
         category: 'Peripherals',
-        description: 'Tactile mechanical switch keyboard for office environments.',
+        description: 'Tactile mechanical switch keyboard for high-productivity office environments.',
         sku: 'OG-KB-001',
+        imageUrl: getDefaultProductImage('Mechanical Ergonomic Keyboard', 'Peripherals'),
         price: 2000,
         costPrice: 1400,
         stock: 150,
@@ -60,8 +122,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerA._id,
         name: 'Wireless Precision Mouse',
         category: 'Peripherals',
-        description: 'High precision 4000 DPI wireless optical mouse.',
+        description: 'High precision 4000 DPI wireless optical mouse with dual device connection.',
         sku: 'OG-MS-002',
+        imageUrl: getDefaultProductImage('Wireless Precision Mouse', 'Peripherals'),
         price: 1000,
         costPrice: 650,
         stock: 200,
@@ -75,8 +138,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerA._id,
         name: 'Noise Cancelling Headset',
         category: 'Audio',
-        description: 'Over-ear USB headset with noise-cancelling microphone.',
+        description: 'Over-ear USB headset with active noise-cancelling microphone.',
         sku: 'OG-HS-003',
+        imageUrl: getDefaultProductImage('Noise Cancelling Headset', 'Audio'),
         price: 3000,
         costPrice: 2000,
         stock: 120,
@@ -140,8 +204,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerB._id,
         name: 'Mechanical Ergonomic Keyboard',
         category: 'Peripherals',
-        description: 'Premium mechanical keyboard with quiet switches.',
+        description: 'Premium mechanical keyboard with quiet switches and hot-swappable keys.',
         sku: 'TS-KB-101',
+        imageUrl: getDefaultProductImage('Mechanical Ergonomic Keyboard', 'Peripherals'),
         price: 1950,
         costPrice: 1350,
         stock: 300,
@@ -155,8 +220,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerB._id,
         name: 'Wireless Precision Mouse',
         category: 'Peripherals',
-        description: 'Ergonomic 2.4G wireless mouse.',
+        description: 'Ergonomic 2.4G wireless mouse with silent clicks.',
         sku: 'TS-MS-102',
+        imageUrl: getDefaultProductImage('Wireless Precision Mouse', 'Peripherals'),
         price: 950,
         costPrice: 600,
         stock: 300,
@@ -170,8 +236,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         sellerId: sellerB._id,
         name: 'Noise Cancelling Headset',
         category: 'Audio',
-        description: 'Professional call center USB stereo headset.',
+        description: 'Professional call center USB stereo headset with padded headband.',
         sku: 'TS-HS-103',
+        imageUrl: getDefaultProductImage('Noise Cancelling Headset', 'Audio'),
         price: 2900,
         costPrice: 1850,
         stock: 250,
@@ -217,6 +284,9 @@ async function seedDatabase(shouldCloseConnection = false) {
         negotiationEnabled: true
       });
     }
+
+    // Run automatic migration to backfill images for existing products
+    await ensureProductImages();
 
     // 4. Check/Create initial Procurement Requirements for Demo Buyer
     if (buyer) {
@@ -281,4 +351,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { seedDatabase };
+module.exports = { seedDatabase, getDefaultProductImage, ensureProductImages };

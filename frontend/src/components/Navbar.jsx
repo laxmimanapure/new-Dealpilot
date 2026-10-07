@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import ProductImage from './ProductImage';
 import { 
   ShieldCheck, 
   Search, 
@@ -128,6 +129,7 @@ export default function Navbar({ onOpenAudit }) {
 
   const buyerNavItems = [
     { name: 'Dashboard', path: '/buyer', icon: Home },
+    { name: 'Product Catalog', path: '/buyer/catalog', icon: LayoutGrid },
     { name: 'My Requests', path: '/buyer/requests', icon: FileText },
     { name: 'Negotiations', path: '/buyer/negotiations', icon: Target },
     { name: 'Suppliers', path: '/buyer/suppliers', icon: Users },
@@ -235,18 +237,28 @@ export default function Navbar({ onOpenAudit }) {
                               onClick={() => {
                                 setSearchDropdownOpen(false);
                                 setSearchQuery('');
-                                navigate(user?.role === 'buyer' ? '/buyer/new-request' : '/seller/catalog');
+                                navigate(user?.role === 'buyer' ? '/buyer/catalog' : '/seller/catalog');
                               }}
                               className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer group"
                             >
-                              <div>
-                                <div className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors">
-                                  {p.name}
-                                </div>
-                                <div className="text-[11px] text-slate-500 flex items-center space-x-2">
-                                  <span>{p.category}</span>
-                                  <span>•</span>
-                                  <span>Supplier: {p.supplier_name}</span>
+                              <div className="flex items-center space-x-3">
+                                <ProductImage
+                                  src={p.imageUrl || p.image}
+                                  alt={p.name}
+                                  name={p.name}
+                                  category={p.category}
+                                  className="w-10 h-10 object-cover rounded-lg"
+                                  containerClassName="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-100"
+                                />
+                                <div>
+                                  <div className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors">
+                                    {p.name}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 flex items-center space-x-2">
+                                    <span>{p.category}</span>
+                                    <span>•</span>
+                                    <span>Supplier: {p.supplier_name}</span>
+                                  </div>
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
@@ -302,7 +314,6 @@ export default function Navbar({ onOpenAudit }) {
           {/* RIGHT: Notifications & User Profile */}
           <div className="flex items-center space-x-5">
             
-            {/* Notification Bell */}
             <button 
               type="button"
               className="relative p-2 text-[#5F759B] hover:text-[#0F1E3A] hover:bg-[#F0F4FA] rounded-full transition-colors"
@@ -312,7 +323,6 @@ export default function Navbar({ onOpenAudit }) {
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#2457D6] ring-2 ring-white" />
             </button>
 
-            {/* User Dropdown */}
             {user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
@@ -330,7 +340,6 @@ export default function Navbar({ onOpenAudit }) {
                   <ChevronDown className="w-4 h-4 text-[#7E8B9B] ml-0.5" />
                 </button>
 
-                {/* Dropdown Menu */}
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="px-4 py-2 border-b border-slate-100">
@@ -339,7 +348,6 @@ export default function Navbar({ onOpenAudit }) {
                     </div>
 
                     <div className="py-1">
-                      {/* Role Switcher */}
                       <button
                         onClick={handleQuickSwitchRole}
                         className="w-full text-left px-4 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center space-x-2 transition-colors"
@@ -348,7 +356,6 @@ export default function Navbar({ onOpenAudit }) {
                         <span>Switch to {user.role === 'buyer' ? 'Seller' : 'Buyer'}</span>
                       </button>
 
-                      {/* Global Audit Trail */}
                       {onOpenAudit && (
                         <button
                           onClick={() => {
@@ -388,7 +395,6 @@ export default function Navbar({ onOpenAudit }) {
               </Link>
             )}
 
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-[#5F759B] hover:text-[#0F1E3A] rounded-lg"

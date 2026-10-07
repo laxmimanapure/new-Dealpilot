@@ -9,6 +9,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { parseBuyerPrompt } = require('../services/aiService');
 const { processRequirementMatchingAndNegotiation } = require('../services/negotiationEngine');
 const { logAuditEvent } = require('../services/auditService');
+const { getDefaultProductImage } = require('../seed');
 
 router.use(authenticateToken);
 router.use(requireRole('buyer'));
@@ -37,6 +38,62 @@ router.get('/summary', async (req, res) => {
     });
   } catch (err) {
     console.error('Buyer summary error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/buyer/catalog - Get full buyer product catalog with images, categories, and suppliers
+router.get('/catalog', async (req, res) => {
+  try {
+    const { category, search } = req.query;
+    const filter = { active: true };
+
+    if (category && category !== 'All') {
+      filter.category = new RegExp(`^${category.trim()}$`, 'i');
+    }
+
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [
+        { name: regex },
+        { category: regex },
+        { description: regex },
+        { sku: regex }
+      ];
+    }
+
+    const products = await Product.find(filter)
+      .populate('sellerId', 'name companyName email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formatted = products.map(p => {
+      const img = p.imageUrl || getDefaultProductImage(p.name, p.category);
+      return {
+        id: p._id,
+        _id: p._id,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        sku: p.sku,
+        imageUrl: img,
+        image: img,
+        price: p.price,
+        list_price: p.price,
+        stock: p.stock,
+        unit: p.unit,
+        moq: p.moq,
+        standard_lead_time_days: p.standardLeadTimeDays,
+        seller_id: p.sellerId?._id,
+        supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
+        supplier_email: p.sellerId?.email,
+        created_at: p.createdAt
+      };
+    });
+
+    res.json({ catalog: formatted, products: formatted });
+  } catch (err) {
+    console.error('Buyer catalog error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -82,7 +139,6 @@ router.post('/requests', async (req, res) => {
     let parsedResult = { items: [], total_budget: total_budget || 100000, deadline_days: deadline_days || 14 };
 
     if (textToParse) {
-      // Call Gemini AI service to parse natural language
       parsedResult = await parseBuyerPrompt(textToParse);
     }
 
@@ -102,7 +158,6 @@ router.post('/requests', async (req, res) => {
       return res.status(400).json({ error: 'Could not extract any product items from the requirement prompt.' });
     }
 
-    // Save requirement to MongoDB
     const requirement = await ProcurementRequirement.create({
       buyerId,
       rawPrompt: textToParse || finalItems.map(i => `${i.quantity}x ${i.item_name}`).join(', '),
@@ -121,7 +176,6 @@ router.post('/requests', async (req, res) => {
       policyResult: 'APPROVED'
     });
 
-    // Run deterministic seller matching & product-rule negotiation
     requirement.status = 'MATCHING';
     await requirement.save();
 
@@ -164,7 +218,6 @@ router.get('/requests/:id/plans', async (req, res) => {
       .populate('sellerId', 'name companyName email')
       .lean();
 
-    // If offers haven't been generated yet, run matching engine now
     if (offers.length === 0) {
       const reqDoc = await ProcurementRequirement.findById(requirementId);
       if (reqDoc) {
@@ -247,7 +300,6 @@ router.delete('/requests/:id', async (req, res) => {
       return res.status(404).json({ error: 'Negotiation request not found or unauthorized' });
     }
 
-    // Clean up requirement, offers, and negotiations from MongoDB
     await Promise.all([
       ProcurementRequirement.deleteOne({ _id: requirementId, buyerId }),
       SellerOffer.deleteMany({ requirementId }),
@@ -270,4 +322,3 @@ router.delete('/requests/:id', async (req, res) => {
 });
 
 module.exports = router;
-

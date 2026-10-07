@@ -7,6 +7,7 @@ const SellerOffer = require('../models/SellerOffer');
 const ProcurementRequirement = require('../models/ProcurementRequirement');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { logAuditEvent } = require('../services/auditService');
+const { getDefaultProductImage } = require('../seed');
 
 router.use(authenticateToken);
 router.use(requireRole('seller'));
@@ -42,6 +43,203 @@ router.get('/summary', async (req, res) => {
     });
   } catch (err) {
     console.error('Seller summary error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/seller/catalog - Get seller products with their rules and images
+router.get('/catalog', async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const products = await Product.find({ sellerId }).sort({ createdAt: -1 }).lean();
+    
+    // Fetch rules for each product
+    const productIds = products.map(p => p._id);
+    const rules = await ProductRule.find({ productId: { $in: productIds } }).lean();
+    
+    const ruleMap = {};
+    rules.forEach(r => {
+      ruleMap[r.productId.toString()] = r;
+    });
+
+    const catalogWithRules = products.map(p => {
+      const img = p.imageUrl || getDefaultProductImage(p.name, p.category);
+      return {
+        id: p._id,
+        _id: p._id,
+        seller_id: p.sellerId,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        sku: p.sku,
+        imageUrl: img,
+        image: img,
+        list_price: p.price,
+        price: p.price,
+        cost_price: p.costPrice,
+        costPrice: p.costPrice,
+        stock: p.stock,
+        unit: p.unit,
+        active: p.active,
+        moq: p.moq,
+        standard_lead_time_days: p.standardLeadTimeDays,
+        rules: ruleMap[p._id.toString()] || null,
+        created_at: p.createdAt
+      };
+    });
+
+    res.json({
+      catalog: catalogWithRules,
+      products: catalogWithRules
+    });
+  } catch (err) {
+    console.error('Seller catalog error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/seller/catalog - Add product + ProductRule
+router.post('/catalog', async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const { 
+      name, 
+      category, 
+      description, 
+      sku,
+      imageUrl,
+      image,
+      list_price, 
+      cost_price, 
+      stock, 
+      unit, 
+      moq, 
+      standard_lead_time_days,
+      rules 
+    } = req.body;
+
+    if (!name || list_price === undefined) {
+      return res.status(400).json({ error: 'Product name and list_price are required' });
+    }
+
+    const prodName = name.trim();
+    const prodCat = category || 'General Hardware';
+    const finalImage = (imageUrl || image || '').trim() || getDefaultProductImage(prodName, prodCat);
+
+    const product = await Product.create({
+      sellerId,
+      name: prodName,
+      category: prodCat,
+      description: description || '',
+      sku: sku || `SKU-${Date.now().toString().slice(-6)}`,
+      imageUrl: finalImage,
+      price: Number(list_price),
+      costPrice: Number(cost_price || (list_price * 0.7)),
+      stock: Number(stock !== undefined ? stock : 100),
+      unit: unit || 'units',
+      active: true,
+      moq: Number(moq || 1),
+      standardLeadTimeDays: Number(standard_lead_time_days || 3)
+    });
+
+    // Create product-specific negotiation rule in MongoDB
+    const minPrice = rules?.minimumPrice !== undefined ? Number(rules.minimumPrice) : Number(list_price * 0.85);
+    const maxDiscountPct = rules?.maximumDiscountPercent !== undefined ? Number(rules.maximumDiscountPercent) : 15.0;
+
+    const productRule = await ProductRule.create({
+      productId: product._id,
+      sellerId,
+      minimumPrice: minPrice,
+      maximumDiscountPercent: maxDiscountPct,
+      maximumDiscountAmount: rules?.maximumDiscountAmount || 20000.0,
+      minimumQuantity: rules?.minimumQuantity || 1,
+      maximumQuantity: rules?.maximumQuantity || null,
+      bulkDiscountRules: rules?.bulkDiscountRules || [
+        { minQuantity: 10, maxQuantity: 49, discountPercent: 3.0 },
+        { minQuantity: 50, maxQuantity: 200, discountPercent: 5.0 }
+      ],
+      earlyPaymentDiscount: rules?.earlyPaymentDiscount || 2.0,
+      leadTimeExtensionDays: rules?.leadTimeExtensionDays || 7,
+      leadTimeExtraDiscount: rules?.leadTimeExtraDiscount || 1.0,
+      marginFloorPercent: rules?.marginFloorPercent || 8.0,
+      negotiationEnabled: rules?.negotiationEnabled !== undefined ? Boolean(rules.negotiationEnabled) : true
+    });
+
+    await logAuditEvent({
+      userId: sellerId,
+      action: 'PRODUCT_CREATED',
+      details: { productId: product._id, name: product.name, price: product.price, minimumPrice: minPrice },
+      policyResult: 'APPROVED'
+    });
+
+    res.status(201).json({
+      message: 'Product created successfully',
+      product: {
+        id: product._id,
+        name: product.name,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        image: product.imageUrl,
+        list_price: product.price,
+        cost_price: product.costPrice,
+        stock: product.stock,
+        rules: productRule
+      }
+    });
+  } catch (err) {
+    console.error('Create product error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/seller/catalog/:id - Update product
+router.put('/catalog/:id', async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const productId = req.params.id;
+
+    const product = await Product.findOne({ _id: productId, sellerId });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found or unauthorized' });
+    }
+
+    const { name, category, description, imageUrl, image, price, costPrice, stock, active, moq } = req.body;
+
+    if (name) product.name = name;
+    if (category) product.category = category;
+    if (description !== undefined) product.description = description;
+    if (imageUrl !== undefined || image !== undefined) {
+      product.imageUrl = (imageUrl || image || '').trim() || getDefaultProductImage(product.name, product.category);
+    }
+    if (price !== undefined) product.price = Number(price);
+    if (costPrice !== undefined) product.costPrice = Number(costPrice);
+    if (stock !== undefined) product.stock = Number(stock);
+    if (active !== undefined) product.active = Boolean(active);
+    if (moq !== undefined) product.moq = Number(moq);
+
+    await product.save();
+
+    res.json({ message: 'Product updated successfully', product });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/seller/catalog/:id - Delete product
+router.delete('/catalog/:id', async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const productId = req.params.id;
+
+    const product = await Product.findOneAndDelete({ _id: productId, sellerId });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found or unauthorized' });
+    }
+
+    await ProductRule.deleteMany({ productId });
+
+    res.json({ message: 'Product deleted successfully' });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -111,13 +309,11 @@ router.get('/requests', async (req, res) => {
   try {
     const sellerId = req.user.id;
 
-    // Fetch all procurement requirements from buyers
     const requirements = await ProcurementRequirement.find({})
       .populate('buyerId', 'name companyName email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Fetch offers generated specifically by THIS seller
     const myOffers = await SellerOffer.find({ sellerId }).lean();
     const offerMap = {};
     myOffers.forEach(o => {
@@ -144,188 +340,6 @@ router.get('/requests', async (req, res) => {
     });
 
     res.json({ requests: formatted });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-module.exports = router;
-
-// GET /api/seller/catalog - Get seller products with their rules
-router.get('/catalog', async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const products = await Product.find({ sellerId }).sort({ createdAt: -1 }).lean();
-    
-    // Fetch rules for each product
-    const productIds = products.map(p => p._id);
-    const rules = await ProductRule.find({ productId: { $in: productIds } }).lean();
-    
-    const ruleMap = {};
-    rules.forEach(r => {
-      ruleMap[r.productId.toString()] = r;
-    });
-
-    const catalogWithRules = products.map(p => ({
-      id: p._id,
-      _id: p._id,
-      seller_id: p.sellerId,
-      name: p.name,
-      category: p.category,
-      description: p.description,
-      sku: p.sku,
-      list_price: p.price,
-      price: p.price,
-      cost_price: p.costPrice,
-      costPrice: p.costPrice,
-      stock: p.stock,
-      unit: p.unit,
-      active: p.active,
-      moq: p.moq,
-      standard_lead_time_days: p.standardLeadTimeDays,
-      rules: ruleMap[p._id.toString()] || null,
-      created_at: p.createdAt
-    }));
-
-    res.json({
-      catalog: catalogWithRules,
-      products: catalogWithRules
-    });
-  } catch (err) {
-    console.error('Seller catalog error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/seller/catalog - Add product + ProductRule
-router.post('/catalog', async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const { 
-      name, 
-      category, 
-      description, 
-      sku, 
-      list_price, 
-      cost_price, 
-      stock, 
-      unit, 
-      moq, 
-      standard_lead_time_days,
-      rules 
-    } = req.body;
-
-    if (!name || list_price === undefined) {
-      return res.status(400).json({ error: 'Product name and list_price are required' });
-    }
-
-    const product = await Product.create({
-      sellerId,
-      name: name.trim(),
-      category: category || 'General Hardware',
-      description: description || '',
-      sku: sku || `SKU-${Date.now().toString().slice(-6)}`,
-      price: Number(list_price),
-      costPrice: Number(cost_price || (list_price * 0.7)),
-      stock: Number(stock !== undefined ? stock : 100),
-      unit: unit || 'units',
-      active: true,
-      moq: Number(moq || 1),
-      standardLeadTimeDays: Number(standard_lead_time_days || 3)
-    });
-
-    // Create product-specific negotiation rule in MongoDB
-    const minPrice = rules?.minimumPrice !== undefined ? Number(rules.minimumPrice) : Number(list_price * 0.85);
-    const maxDiscountPct = rules?.maximumDiscountPercent !== undefined ? Number(rules.maximumDiscountPercent) : 15.0;
-
-    const productRule = await ProductRule.create({
-      productId: product._id,
-      sellerId,
-      minimumPrice: minPrice,
-      maximumDiscountPercent: maxDiscountPct,
-      maximumDiscountAmount: rules?.maximumDiscountAmount || 20000.0,
-      minimumQuantity: rules?.minimumQuantity || 1,
-      maximumQuantity: rules?.maximumQuantity || null,
-      bulkDiscountRules: rules?.bulkDiscountRules || [
-        { minQuantity: 10, maxQuantity: 49, discountPercent: 3.0 },
-        { minQuantity: 50, maxQuantity: 200, discountPercent: 5.0 }
-      ],
-      earlyPaymentDiscount: rules?.earlyPaymentDiscount || 2.0,
-      leadTimeExtensionDays: rules?.leadTimeExtensionDays || 7,
-      leadTimeExtraDiscount: rules?.leadTimeExtraDiscount || 1.0,
-      marginFloorPercent: rules?.marginFloorPercent || 8.0,
-      negotiationEnabled: rules?.negotiationEnabled !== undefined ? Boolean(rules.negotiationEnabled) : true
-    });
-
-    await logAuditEvent({
-      userId: sellerId,
-      action: 'PRODUCT_CREATED',
-      details: { productId: product._id, name: product.name, price: product.price, minimumPrice: minPrice },
-      policyResult: 'APPROVED'
-    });
-
-    res.status(201).json({
-      message: 'Product created successfully',
-      product: {
-        id: product._id,
-        name: product.name,
-        category: product.category,
-        list_price: product.price,
-        cost_price: product.costPrice,
-        stock: product.stock,
-        rules: productRule
-      }
-    });
-  } catch (err) {
-    console.error('Create product error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// PUT /api/seller/catalog/:id - Update product
-router.put('/catalog/:id', async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const productId = req.params.id;
-
-    const product = await Product.findOne({ _id: productId, sellerId });
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found or unauthorized' });
-    }
-
-    const { name, category, description, price, costPrice, stock, active, moq } = req.body;
-
-    if (name) product.name = name;
-    if (category) product.category = category;
-    if (description !== undefined) product.description = description;
-    if (price !== undefined) product.price = Number(price);
-    if (costPrice !== undefined) product.costPrice = Number(costPrice);
-    if (stock !== undefined) product.stock = Number(stock);
-    if (active !== undefined) product.active = Boolean(active);
-    if (moq !== undefined) product.moq = Number(moq);
-
-    await product.save();
-
-    res.json({ message: 'Product updated successfully', product });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// DELETE /api/seller/catalog/:id - Delete product
-router.delete('/catalog/:id', async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const productId = req.params.id;
-
-    const product = await Product.findOneAndDelete({ _id: productId, sellerId });
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found or unauthorized' });
-    }
-
-    await ProductRule.deleteMany({ productId });
-
-    res.json({ message: 'Product deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -438,35 +452,6 @@ router.put('/rules/:productId', async (req, res) => {
     await rule.save();
 
     res.json({ message: 'Product negotiation rules updated successfully', rule });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/seller/requests - View incoming buyer requirements
-router.get('/requests', async (req, res) => {
-  try {
-    const sellerId = req.user.id;
-    const offers = await SellerOffer.find({ sellerId })
-      .populate({ path: 'requirementId', populate: { path: 'buyerId', select: 'name companyName email' } })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const formatted = offers.map(o => ({
-      id: o._id,
-      request_id: o.requirementId?._id,
-      buyer_name: o.requirementId?.buyerId?.name || 'Buyer',
-      buyer_company: o.requirementId?.buyerId?.companyName || 'Buyer Company',
-      raw_prompt: o.requirementId?.rawPrompt,
-      total_budget: o.requirementId?.targetBudget,
-      original_amount: o.originalAmount,
-      negotiated_amount: o.negotiatedAmount,
-      savings: o.savings,
-      status: o.status,
-      created_at: o.createdAt
-    }));
-
-    res.json({ requests: formatted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

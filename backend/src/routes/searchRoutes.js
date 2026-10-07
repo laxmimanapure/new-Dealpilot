@@ -4,12 +4,10 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const { authenticateToken } = require('../middleware/auth');
+const { getDefaultProductImage } = require('../seed');
 
 router.use(authenticateToken);
 
-/**
- * Escapes regex special characters to prevent ReDoS / injection
- */
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -25,7 +23,6 @@ router.get('/search', async (req, res) => {
     const cleanQuery = q.trim();
     const regex = new RegExp(escapeRegex(cleanQuery), 'i');
 
-    // 1. Search Products in MongoDB
     const dbProducts = await Product.find({
       active: true,
       $or: [
@@ -38,27 +35,29 @@ router.get('/search', async (req, res) => {
     .populate('sellerId', 'name companyName email')
     .lean();
 
-    // Sanitize Products (NEVER expose costPrice, minimumPrice, or private rules)
-    const sanitizedProducts = dbProducts.map(p => ({
-      id: p._id,
-      _id: p._id,
-      name: p.name,
-      category: p.category,
-      description: p.description,
-      sku: p.sku,
-      price: p.price,
-      list_price: p.price,
-      stock: p.stock,
-      unit: p.unit,
-      moq: p.moq,
-      standard_lead_time_days: p.standardLeadTimeDays,
-      seller_id: p.sellerId?._id,
-      supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
-      supplier_email: p.sellerId?.email
-    }));
+    const sanitizedProducts = dbProducts.map(p => {
+      const img = p.imageUrl || getDefaultProductImage(p.name, p.category);
+      return {
+        id: p._id,
+        _id: p._id,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        sku: p.sku,
+        imageUrl: img,
+        image: img,
+        price: p.price,
+        list_price: p.price,
+        stock: p.stock,
+        unit: p.unit,
+        moq: p.moq,
+        standard_lead_time_days: p.standardLeadTimeDays,
+        seller_id: p.sellerId?._id,
+        supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
+        supplier_email: p.sellerId?.email
+      };
+    });
 
-    // 2. Search Suppliers in MongoDB
-    // Direct matching on supplier name / companyName / email
     const directSuppliers = await User.find({
       role: 'seller',
       $or: [
@@ -70,7 +69,6 @@ router.get('/search', async (req, res) => {
     .select('name companyName email createdAt')
     .lean();
 
-    // Also include suppliers whose products matched the search query
     const productSellerIds = dbProducts.map(p => p.sellerId?._id?.toString()).filter(Boolean);
     const productSuppliers = await User.find({
       _id: { $in: productSellerIds },
@@ -79,7 +77,6 @@ router.get('/search', async (req, res) => {
     .select('name companyName email createdAt')
     .lean();
 
-    // Combine & deduplicate suppliers
     const supplierMap = new Map();
     [...directSuppliers, ...productSuppliers].forEach(s => {
       if (!supplierMap.has(s._id.toString())) {
@@ -89,7 +86,6 @@ router.get('/search', async (req, res) => {
 
     const combinedSuppliers = Array.from(supplierMap.values());
 
-    // Enrich suppliers with active products count & completed orders count
     const sanitizedSuppliers = await Promise.all(combinedSuppliers.map(async s => {
       const activeProductsCount = await Product.countDocuments({ sellerId: s._id, active: true });
       const completedOrdersCount = await Order.countDocuments({ sellerId: s._id, orderStatus: 'CONFIRMED' });
@@ -137,20 +133,25 @@ router.get('/products/search', async (req, res) => {
     .populate('sellerId', 'name companyName email')
     .lean();
 
-    const sanitizedProducts = dbProducts.map(p => ({
-      id: p._id,
-      _id: p._id,
-      name: p.name,
-      category: p.category,
-      description: p.description,
-      sku: p.sku,
-      price: p.price,
-      list_price: p.price,
-      stock: p.stock,
-      unit: p.unit,
-      supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
-      supplier_id: p.sellerId?._id
-    }));
+    const sanitizedProducts = dbProducts.map(p => {
+      const img = p.imageUrl || getDefaultProductImage(p.name, p.category);
+      return {
+        id: p._id,
+        _id: p._id,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        sku: p.sku,
+        imageUrl: img,
+        image: img,
+        price: p.price,
+        list_price: p.price,
+        stock: p.stock,
+        unit: p.unit,
+        supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
+        supplier_id: p.sellerId?._id
+      };
+    });
 
     res.json({ products: sanitizedProducts });
   } catch (err) {

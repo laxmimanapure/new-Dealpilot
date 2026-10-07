@@ -6,6 +6,7 @@ import AuditTrailModal from './components/AuditTrailModal';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import BuyerDashboard from './pages/BuyerDashboard';
+import BuyerCatalogPage from './pages/BuyerCatalogPage';
 import BuyerRequestsPage from './pages/BuyerRequestsPage';
 import BuyerNegotiationsPage from './pages/BuyerNegotiationsPage';
 import BuyerSuppliersPage from './pages/BuyerSuppliersPage';
@@ -67,7 +68,6 @@ function MainLayout() {
   return (
     <div className={`min-h-screen flex flex-col font-sans ${isLandingPage || isBuyerRoute || isSellerRoute || isAuthRoute ? 'bg-[#F8FAFC] text-[#0F1E3A]' : 'bg-slate-900 text-slate-100'}`}>
       
-      {/* Hide App Navbar on Landing Page since Landing Page renders its own minimal header */}
       {!isLandingPage && <Navbar onOpenAudit={() => setIsAuditModalOpen(true)} />}
 
       <main className="flex-1">
@@ -81,6 +81,14 @@ function MainLayout() {
             element={
               <ProtectedRoute role="buyer">
                 <BuyerDashboard onOpenAudit={() => setIsAuditModalOpen(true)} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/buyer/catalog"
+            element={
+              <ProtectedRoute role="buyer">
+                <BuyerCatalogPage />
               </ProtectedRoute>
             }
           />
@@ -258,4 +266,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

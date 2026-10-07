@@ -4,8 +4,16 @@ import { Package, Laptop, Mouse, Headphones, Armchair, Printer, Coffee, FileText
 export function resolveImageUrl(src) {
   if (!src || typeof src !== 'string') return '';
   if (src.startsWith('/uploads/')) {
-    // Relative upload path - resolve to backend server URL
-    return `http://localhost:5000${src}`;
+    const rawApiUrl = import.meta.env.VITE_API_URL || '';
+    if (rawApiUrl.startsWith('http')) {
+      try {
+        const urlObj = new URL(rawApiUrl);
+        return `${urlObj.origin}${src}`;
+      } catch (e) {
+        return src;
+      }
+    }
+    return src;
   }
   return src;
 }
@@ -75,8 +83,6 @@ export default function ProductImage({
 }) {
   const [hasError, setHasError] = useState(false);
 
-  // If a valid src exists, use it directly (resolving relative /uploads/ URLs to server host)
-  // ONLY if src is genuinely missing, use getProductFallbackImage(name, category)
   const resolvedSrc = src ? resolveImageUrl(src) : getProductFallbackImage(name, category);
   const [currentSrc, setCurrentSrc] = useState(resolvedSrc);
 

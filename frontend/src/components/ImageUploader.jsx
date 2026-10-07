@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../api/axios';
+import { resolveImageUrl } from './ProductImage';
 import { Upload, Camera, Link as LinkIcon, X, Check, RefreshCw, Image as ImageIcon } from 'lucide-react';
 
 export default function ImageUploader({ value, onChange }) {
@@ -70,7 +71,6 @@ export default function ImageUploader({ value, onChange }) {
     }
   };
 
-  // Upload image data URL to backend server to get persistent static URL
   const uploadImageToServer = async (dataUrl) => {
     setUploading(true);
     try {
@@ -87,10 +87,8 @@ export default function ImageUploader({ value, onChange }) {
     }
   };
 
-  // Helper function to compress/resize image on canvas
   const compressAndUpload = (imageSrc) => {
     const img = new Image();
-    // Do NOT set crossOrigin for data URIs as it causes security/cors issues in Chrome
     if (imageSrc.startsWith('http://') || imageSrc.startsWith('https://')) {
       img.crossOrigin = 'anonymous';
     }
@@ -126,7 +124,6 @@ export default function ImageUploader({ value, onChange }) {
     };
   };
 
-  // File Upload Handler
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -143,7 +140,6 @@ export default function ImageUploader({ value, onChange }) {
     reader.readAsDataURL(file);
   };
 
-  // Camera Capture Handler
   const takePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
@@ -162,14 +158,6 @@ export default function ImageUploader({ value, onChange }) {
   const retakePhoto = () => {
     setCapturedPhoto(null);
     startCamera();
-  };
-
-  const resolvePreviewUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('/uploads/')) {
-      return `http://localhost:5000${url}`;
-    }
-    return url;
   };
 
   return (
@@ -344,7 +332,7 @@ export default function ImageUploader({ value, onChange }) {
         <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 overflow-hidden">
             <img
-              src={resolvePreviewUrl(value)}
+              src={resolveImageUrl(value)}
               alt="Selected Preview"
               className="w-12 h-12 object-cover rounded-xl border border-slate-200 shrink-0"
               onError={(e) => {

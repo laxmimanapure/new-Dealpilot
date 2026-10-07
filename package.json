@@ -1,0 +1,17 @@
+{
+  "name": "dealpilot-procure",
+  "version": "3.0.0",
+  "description": "Mandate-bound AI negotiation for small-business procurement",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "server": "node backend/src/server.js",
+    "client": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "seed": "node backend/src/seed.js",
+    "test": "node backend/src/test/engine.test.js"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

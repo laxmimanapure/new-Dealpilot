@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Environment files & Secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+
+# Local Databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Build & Output directories
+dist/
+build/
+**/dist/
+**/build/
+.next/
+out/
+coverage/
+
+# IDE & System files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

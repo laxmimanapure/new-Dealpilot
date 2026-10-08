@@ -12,24 +12,37 @@ export default {
         mono: ['"Space Grotesk"', 'monospace'],
       },
       colors: {
-        deepNavy: '#0F1E3A',
-        darkBlue: '#162A4A',
-        royalBlue: '#2457D6',
-        electricBlue: '#3B82F6',
-        softBlue: '#6E9FEF',
-        powderBlue: '#A7B6D0',
-        lightBlue: '#EAF1FF',
-        offWhite: '#F8FAFC',
+        brand: {
+          bg: '#FBF8F3',         // Warm Ivory / Cream Off-White
+          card: '#FFFFFF',       // Pure White Surface
+          dark: '#20284F',       // Deep Navy
+          purple: '#352F6E',     // Dark Indigo Navy
+          accent: '#7668D8',     // Soft Royal Purple
+          pink: '#E88AAE',       // Soft Rose Pink
+          gradientPink: '#AB70C5',
+          muted: '#5A6588',      // Slate Navy Text
+          border: '#EAE3D9',     // Warm Beige Border
+          borderHover: '#7668D8',
+          subtle: '#FAF6F0',     // Soft Cream Surface Tints
+        },
+        deepNavy: '#20284F',
+        darkBlue: '#352F6E',
+        royalBlue: '#7668D8',
+        electricBlue: '#7668D8',
+        softBlue: '#9D8FE6',
+        powderBlue: '#D8D2FA',
+        lightBlue: '#FAF6F0',
+        offWhite: '#FBF8F3',
         navy: {
-          DEFAULT: '#0F1E3A',
-          primary: '#0F1E3A',
-          secondary: '#162A4A',
-          royal: '#2457D6',
-          electric: '#3B82F6',
-          soft: '#6E9FEF',
-          powder: '#A7B6D0',
-          light: '#EAF1FF',
-          offwhite: '#F8FAFC',
+          DEFAULT: '#20284F',
+          primary: '#20284F',
+          secondary: '#352F6E',
+          royal: '#7668D8',
+          electric: '#7668D8',
+          soft: '#9D8FE6',
+          powder: '#D8D2FA',
+          light: '#FAF6F0',
+          offwhite: '#FBF8F3',
         },
         mint: {
           50: '#ECFDF5',
@@ -38,18 +51,20 @@ export default {
           600: '#059669',
         },
         nude: {
-          50: '#FAF8F5',
-          100: '#F4F0EA',
+          50: '#FBF8F3',
+          100: '#FAF6F0',
           200: '#EAE3D9',
           300: '#DDD4C7',
           400: '#C8BBAA',
         }
       },
       backgroundImage: {
-        'grid-pattern': "radial-gradient(circle, #3B82F6 1px, transparent 1px)",
+        'grid-pattern': "radial-gradient(circle, #7668D8 1px, transparent 1px)",
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.6) 100%)',
-        'navy-glass': 'linear-gradient(135deg, rgba(22,42,74,0.85) 0%, rgba(15,30,58,0.95) 100%)',
+        'glass-gradient': 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(251,248,243,0.8) 100%)',
+        'navy-glass': 'linear-gradient(135deg, rgba(53,47,110,0.9) 0%, rgba(32,40,79,0.95) 100%)',
+        'brand-gradient': 'linear-gradient(to right, #20284F, #352F6E, #7668D8)',
+        'brand-gradient-hover': 'linear-gradient(to right, #7668D8, #AB70C5, #E88AAE)',
       },
       animation: {
         'float-slow': 'float 6s ease-in-out infinite',
@@ -69,3 +84,4 @@ export default {
   },
   plugins: [],
 }
+

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import ProductImage from './ProductImage';
+import Logo from './common/Logo';
 import { 
   ShieldCheck, 
   Search, 
@@ -159,28 +160,21 @@ export default function Navbar({ onOpenAudit }) {
   };
 
   return (
-    <header className="bg-white border-b border-[#EAF0F8] sticky top-0 z-50 transition-all font-sans">
-      <div className="max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-14">
+    <header className="bg-[#FBF8F3]/95 backdrop-blur-md border-b border-[#EAE3D9] sticky top-0 z-50 transition-all font-sans shadow-2xs">
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-12">
         
         {/* ================= ROW 1 ================= */}
-        <div className="flex items-center justify-between h-16 sm:h-18">
+        <div className="flex items-center justify-between h-16 sm:h-20">
           
-          {/* LEFT: Logo */}
+          {/* LEFT: DealPilot AI Brand Logo */}
           <div className="flex items-center space-x-3 shrink-0">
-            <Link to="/" className="flex items-center space-x-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2457D6] via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-                <ShieldCheck className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-[#0F1E3A] tracking-tight font-sans">
-                DealPilot
-              </span>
-            </Link>
+            <Logo showTagline={false} size="sm" />
           </div>
 
           {/* CENTER: Search Bar with Live MongoDB Results */}
           <div className="hidden md:flex items-center flex-1 max-w-xl mx-8 relative" ref={searchContainerRef}>
             <div className="w-full relative flex items-center">
-              <Search className="w-4 h-4 text-[#5F759B] absolute left-4 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#7668D8] absolute left-4 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -188,18 +182,18 @@ export default function Navbar({ onOpenAudit }) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery.trim() && setSearchDropdownOpen(true)}
                 placeholder="Search products, suppliers, or categories..."
-                className="w-full pl-10 pr-12 py-2 bg-[#F0F4FA] hover:bg-[#E8EEF8] focus:bg-white text-xs text-[#0F1E3A] placeholder-[#8EA0C0] border border-transparent focus:border-blue-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all h-10 font-sans"
+                className="w-full pl-10 pr-12 py-2 bg-[#FAF6F0] hover:bg-white focus:bg-white text-xs text-[#20284F] placeholder-[#94A3B8] border border-[#EAE3D9] focus:border-[#7668D8] focus:ring-2 focus:ring-[#7668D8]/20 rounded-xl focus:outline-none transition-all h-10 font-sans shadow-2xs"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                  className="absolute right-3.5 text-xs text-[#5A6588] hover:text-[#20284F] font-bold"
                 >
                   ✕
                 </button>
               ) : (
-                <div className="absolute right-3 px-1.5 py-0.5 text-[10px] font-mono text-[#7E8B9B] bg-white border border-[#DCE4F0] rounded shadow-2xs pointer-events-none flex items-center space-x-0.5">
+                <div className="absolute right-3 px-1.5 py-0.5 text-[10px] font-mono text-[#5A6588] bg-white border border-[#EAE3D9] rounded-md shadow-2xs pointer-events-none flex items-center space-x-0.5 font-bold">
                   <span>⌘</span>
                   <span>K</span>
                 </div>
@@ -208,16 +202,16 @@ export default function Navbar({ onOpenAudit }) {
 
             {/* Floating Live Search Dropdown */}
             {searchDropdownOpen && (
-              <div className="absolute top-12 left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 max-h-[480px] overflow-y-auto p-4 space-y-4">
+              <div className="absolute top-12 left-0 right-0 bg-white border border-[#EAE3D9] rounded-2xl shadow-xl z-50 max-h-[480px] overflow-y-auto p-4 space-y-4">
                 {isSearching ? (
-                  <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="p-4 text-center text-xs text-[#5A6588] flex items-center justify-center space-x-2 font-medium">
+                    <div className="w-4 h-4 border-2 border-[#7668D8] border-t-transparent rounded-full animate-spin"></div>
                     <span>Searching DealPilot database...</span>
                   </div>
                 ) : searchResults.products.length === 0 && searchResults.suppliers.length === 0 ? (
                   <div className="p-6 text-center space-y-2">
-                    <p className="text-xs font-bold text-slate-700">No results found for "{searchQuery}"</p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-xs font-bold text-[#20284F]">No results found for "{searchQuery}"</p>
+                    <p className="text-[11px] text-[#5A6588]">
                       Try searching for 'keyboard', 'laptop', 'mouse', 'monitor', or 'office'.
                     </p>
                   </div>
@@ -226,8 +220,8 @@ export default function Navbar({ onOpenAudit }) {
                     {/* DealPilot Products */}
                     {searchResults.products.length > 0 && (
                       <div className="space-y-2">
-                        <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                          <Package className="w-3.5 h-3.5 text-blue-600" />
+                        <div className="flex items-center space-x-1.5 text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider px-1">
+                          <Package className="w-3.5 h-3.5 text-[#7668D8]" />
                           <span>DealPilot Products ({searchResults.products.length})</span>
                         </div>
                         <div className="space-y-1">
@@ -239,7 +233,7 @@ export default function Navbar({ onOpenAudit }) {
                                 setSearchQuery('');
                                 navigate(user?.role === 'buyer' ? '/buyer/catalog' : '/seller/catalog');
                               }}
-                              className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer group"
+                              className="p-2.5 rounded-xl hover:bg-[#FAF6F0] transition-colors flex items-center justify-between cursor-pointer group"
                             >
                               <div className="flex items-center space-x-3">
                                 <ProductImage
@@ -248,13 +242,13 @@ export default function Navbar({ onOpenAudit }) {
                                   name={p.name}
                                   category={p.category}
                                   className="w-10 h-10 object-cover rounded-lg"
-                                  containerClassName="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-100"
+                                  containerClassName="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-[#EAE3D9]"
                                 />
                                 <div>
-                                  <div className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  <div className="font-bold text-xs text-[#20284F] group-hover:text-[#7668D8] transition-colors">
                                     {p.name}
                                   </div>
-                                  <div className="text-[11px] text-slate-500 flex items-center space-x-2">
+                                  <div className="text-[11px] text-[#5A6588] flex items-center space-x-2">
                                     <span>{p.category}</span>
                                     <span>•</span>
                                     <span>Supplier: {p.supplier_name}</span>
@@ -262,8 +256,8 @@ export default function Navbar({ onOpenAudit }) {
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="font-mono font-bold text-xs text-blue-700">₹{p.price.toLocaleString('en-IN')}</div>
-                                <div className="text-[10px] text-slate-400">{p.stock} in stock</div>
+                                <div className="font-mono font-bold text-xs text-[#7668D8]">₹{p.price.toLocaleString('en-IN')}</div>
+                                <div className="text-[10px] text-[#5A6588]">{p.stock} in stock</div>
                               </div>
                             </div>
                           ))}
@@ -273,9 +267,9 @@ export default function Navbar({ onOpenAudit }) {
 
                     {/* DealPilot Suppliers */}
                     {searchResults.suppliers.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                          <Store className="w-3.5 h-3.5 text-indigo-600" />
+                      <div className="space-y-2 pt-2 border-t border-[#EAE3D9]">
+                        <div className="flex items-center space-x-1.5 text-[11px] font-extrabold text-[#352F6E] uppercase tracking-wider px-1">
+                          <Store className="w-3.5 h-3.5 text-[#352F6E]" />
                           <span>DealPilot Suppliers ({searchResults.suppliers.length})</span>
                         </div>
                         <div className="space-y-1">
@@ -287,17 +281,17 @@ export default function Navbar({ onOpenAudit }) {
                                 setSearchQuery('');
                                 navigate('/buyer/suppliers');
                               }}
-                              className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer group"
+                              className="p-2.5 rounded-xl hover:bg-[#FAF6F0] transition-colors flex items-center justify-between cursor-pointer group"
                             >
                               <div>
-                                <div className="font-bold text-xs text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                <div className="font-bold text-xs text-[#20284F] group-hover:text-[#7668D8] transition-colors">
                                   {s.company_name}
                                 </div>
-                                <div className="text-[11px] text-slate-500">
+                                <div className="text-[11px] text-[#5A6588]">
                                   Contact: {s.contact_name} ({s.email})
                                 </div>
                               </div>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#7668D8]/10 text-[#7668D8] border border-[#7668D8]/20">
                                 {s.active_products} Products
                               </span>
                             </div>
@@ -312,15 +306,15 @@ export default function Navbar({ onOpenAudit }) {
           </div>
 
           {/* RIGHT: Notifications & User Profile */}
-          <div className="flex items-center space-x-5">
+          <div className="flex items-center space-x-4 sm:space-x-5">
             
             <button 
               type="button"
-              className="relative p-2 text-[#5F759B] hover:text-[#0F1E3A] hover:bg-[#F0F4FA] rounded-full transition-colors"
+              className="relative p-2 text-[#5A6588] hover:text-[#20284F] hover:bg-[#7668D8]/10 border border-[#EAE3D9] rounded-xl transition-all"
               title="Notifications"
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#2457D6] ring-2 ring-white" />
+              <Bell className="w-4.5 h-4.5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E88AAE] ring-2 ring-white" />
             </button>
 
             {user ? (
@@ -328,31 +322,31 @@ export default function Navbar({ onOpenAudit }) {
                 <button
                   type="button"
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center space-x-2.5 p-1 rounded-full hover:bg-slate-50 transition-all focus:outline-none"
+                  className="flex items-center space-x-2.5 p-1.5 rounded-2xl hover:bg-[#FAF6F0] border border-[#EAE3D9] transition-all focus:outline-none"
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#2457D6] text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                  <div className="w-8.5 h-8.5 rounded-xl bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0">
                     {getUserInitials()}
                   </div>
-                  <div className="hidden sm:block text-left text-xs leading-tight">
-                    <div className="font-semibold text-[#0F1E3A]">{getUserDisplayName()}</div>
-                    <div className="text-[11px] text-[#7E8B9B] capitalize">{user.role} Account</div>
+                  <div className="hidden sm:block text-left text-xs leading-tight pr-1">
+                    <div className="font-bold text-[#20284F]">{getUserDisplayName()}</div>
+                    <div className="text-[10px] font-bold text-[#7668D8] capitalize">{user.role} Desk</div>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-[#7E8B9B] ml-0.5" />
+                  <ChevronDown className="w-3.5 h-3.5 text-[#5A6588]" />
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-4 py-2 border-b border-slate-100">
-                      <p className="text-xs font-bold text-slate-900">{getUserDisplayName()}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                  <div className="absolute right-0 mt-2 w-60 bg-white border border-[#EAE3D9] rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 font-sans">
+                    <div className="px-4 py-2.5 border-b border-[#EAE3D9]">
+                      <p className="text-xs font-bold text-[#20284F]">{getUserDisplayName()}</p>
+                      <p className="text-[11px] text-[#5A6588] truncate">{user.email}</p>
                     </div>
 
                     <div className="py-1">
                       <button
                         onClick={handleQuickSwitchRole}
-                        className="w-full text-left px-4 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 flex items-center space-x-2 transition-colors"
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-[#7668D8] hover:bg-[#7668D8]/10 flex items-center space-x-2 transition-colors"
                       >
-                        <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+                        <RefreshCw className="w-3.5 h-3.5 text-[#7668D8]" />
                         <span>Switch to {user.role === 'buyer' ? 'Seller' : 'Buyer'}</span>
                       </button>
 
@@ -362,7 +356,7 @@ export default function Navbar({ onOpenAudit }) {
                             setDropdownOpen(false);
                             onOpenAudit();
                           }}
-                          className="w-full text-left px-4 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center space-x-2 transition-colors"
+                          className="w-full text-left px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center space-x-2 transition-colors"
                         >
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Global Audit Trail</span>
@@ -370,16 +364,16 @@ export default function Navbar({ onOpenAudit }) {
                       )}
                     </div>
 
-                    <div className="border-t border-slate-100 pt-1">
+                    <div className="border-t border-[#EAE3D9] pt-1">
                       <button
                         onClick={() => {
                           setDropdownOpen(false);
                           logout();
                           navigate('/auth');
                         }}
-                        className="w-full text-left px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center space-x-2 transition-colors"
                       >
-                        <LogOut className="w-3.5 h-3.5 text-red-500" />
+                        <LogOut className="w-3.5 h-3.5 text-rose-500" />
                         <span>Sign Out</span>
                       </button>
                     </div>
@@ -389,7 +383,7 @@ export default function Navbar({ onOpenAudit }) {
             ) : (
               <Link
                 to="/auth"
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#2457D6] hover:bg-blue-700 text-white shadow-xs transition-all"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white shadow-xs transition-all"
               >
                 Sign In
               </Link>
@@ -397,7 +391,7 @@ export default function Navbar({ onOpenAudit }) {
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-[#5F759B] hover:text-[#0F1E3A] rounded-lg"
+              className="md:hidden p-2 text-[#5A6588] hover:text-[#20284F] rounded-xl border border-[#EAE3D9]"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -408,7 +402,7 @@ export default function Navbar({ onOpenAudit }) {
 
         {/* ================= ROW 2: HORIZONTAL NAV MENU ================= */}
         {user && (
-          <div className="hidden md:flex items-center space-x-4 sm:space-x-6 pb-3 pt-1 border-t border-[#F0F4FA] overflow-x-auto no-scrollbar">
+          <div className="hidden md:flex items-center space-x-3 sm:space-x-4 pb-3 pt-1.5 border-t border-[#EAE3D9]/60 overflow-x-auto no-scrollbar">
             {currentNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = isItemActive(item.path);
@@ -417,16 +411,16 @@ export default function Navbar({ onOpenAudit }) {
                 <Link
                   key={item.name}
                   to={item.path}
-                  className={`text-xs font-semibold flex items-center space-x-2 transition-all whitespace-nowrap ${
+                  className={`text-xs font-bold flex items-center space-x-2 transition-all whitespace-nowrap ${
                     isActive
-                      ? 'bg-[#E8F0FE] text-[#2457D6] px-3.5 py-1.5 rounded-full shadow-2xs'
-                      : 'text-[#4A5D7E] hover:text-[#0F1E3A] py-1 px-2'
+                      ? 'bg-[#7668D8]/10 text-[#7668D8] border border-[#7668D8]/20 px-3.5 py-1.5 rounded-full shadow-2xs'
+                      : 'text-[#5A6588] hover:text-[#20284F] hover:bg-[#FAF6F0] py-1.5 px-3 rounded-full'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#2457D6]' : 'text-[#7E8B9B]'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#7668D8]' : 'text-[#5A6588]'}`} />
                   <span>{item.name}</span>
                   {item.badge && (
-                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-[#E88AAE] text-white text-[10px] font-extrabold flex items-center justify-center">
                       {item.badge}
                     </span>
                   )}
@@ -440,12 +434,12 @@ export default function Navbar({ onOpenAudit }) {
 
       {/* MOBILE NAVIGATION DROPDOWN */}
       {mobileMenuOpen && user && (
-        <div className="md:hidden bg-white border-t border-[#EAF0F8] px-6 py-4 space-y-3">
+        <div className="md:hidden bg-[#FBF8F3] border-t border-[#EAE3D9] px-6 py-4 space-y-3">
           <div className="mb-2">
             <input
               type="text"
               placeholder="Search products, requests..."
-              className="w-full pl-3 pr-3 py-2 bg-[#F0F4FA] text-xs text-[#0F1E3A] border border-[#DCE4F0] rounded-lg focus:outline-none"
+              className="w-full pl-3 pr-3 py-2 bg-[#FAF6F0] text-xs text-[#20284F] border border-[#EAE3D9] rounded-xl focus:outline-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -457,11 +451,11 @@ export default function Navbar({ onOpenAudit }) {
                   key={item.name}
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center space-x-2 ${
-                    isActive ? 'bg-[#E8F0FE] text-[#2457D6] font-semibold' : 'text-[#4A5D7E] hover:bg-slate-50'
+                  className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 ${
+                    isActive ? 'bg-[#7668D8]/10 text-[#7668D8] border border-[#7668D8]/20' : 'text-[#5A6588] hover:bg-[#FAF6F0]'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#2457D6]' : 'text-[#7E8B9B]'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#7668D8]' : 'text-[#5A6588]'}`} />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -472,3 +466,4 @@ export default function Navbar({ onOpenAudit }) {
     </header>
   );
 }
+

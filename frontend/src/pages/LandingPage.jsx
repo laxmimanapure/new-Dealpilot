@@ -1,27 +1,23 @@
 import React from 'react';
 import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
-import ProblemSection from '../components/landing/ProblemSection';
+import ProblemSolutionSection from '../components/landing/ProblemSolutionSection';
 import HowItWorks from '../components/landing/HowItWorks';
-import NegotiationDemo from '../components/landing/NegotiationDemo';
-import Philosophy from '../components/landing/Philosophy';
-import BuyerSellerSection from '../components/landing/BuyerSellerSection';
-import Advantages from '../components/landing/Advantages';
+import AiNegotiationSection from '../components/landing/AiNegotiationSection';
+import FeaturesSection from '../components/landing/FeaturesSection';
 import FinalCTA from '../components/landing/FinalCTA';
 import Footer from '../components/landing/Footer';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#FFFFFF] text-[#0F1E3A] font-sans selection:bg-[#0F1E3A]/10 selection:text-[#0F1E3A]">
+    <div className="min-h-screen bg-[#FBF8F3] text-[#20284F] font-sans selection:bg-[#7668D8]/20 selection:text-[#20284F]">
       <Navbar />
       <main>
         <Hero />
-        <ProblemSection />
+        <ProblemSolutionSection />
         <HowItWorks />
-        <NegotiationDemo />
-        <Philosophy />
-        <BuyerSellerSection />
-        <Advantages />
+        <AiNegotiationSection />
+        <FeaturesSection />
         <FinalCTA />
       </main>
       <Footer />

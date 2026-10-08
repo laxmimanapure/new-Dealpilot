@@ -56,17 +56,17 @@ function MainLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] text-slate-900 flex items-center justify-center font-sans">
-        <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs text-slate-500 font-medium">Loading DealPilot Procure...</p>
+      <div className="min-h-screen bg-[#FBF8F3] text-[#20284F] flex items-center justify-center font-sans">
+        <div className="text-center space-y-3">
+          <div className="w-9 h-9 border-3 border-[#7668D8] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs text-[#5A6588] font-bold tracking-wide">Loading DealPilot Procure...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans ${isLandingPage || isBuyerRoute || isSellerRoute || isAuthRoute ? 'bg-[#F8FAFC] text-[#0F1E3A]' : 'bg-slate-900 text-slate-100'}`}>
+    <div className="min-h-screen flex flex-col font-sans bg-[#FBF8F3] text-[#20284F]">
       
       {!isLandingPage && <Navbar onOpenAudit={() => setIsAuditModalOpen(true)} />}
 

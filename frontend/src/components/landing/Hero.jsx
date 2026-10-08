@@ -1,6 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import {
+  Sparkles,
+  ArrowRight,
+  Check,
+  ShoppingBag,
+  Users,
+  Cpu,
+  Tag
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Hero() {
@@ -12,219 +20,234 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative bg-gradient-to-b from-[#FAF8F5]/60 via-white to-white pt-10 pb-12 sm:pt-14 sm:pb-16 lg:pt-16 lg:pb-20 border-b border-[#A7B6D0]/30 overflow-hidden font-sans">
-      {/* Decorative Glow & Background Elements */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-[#3B82F6]/12 via-[#F4F0EA]/50 to-transparent rounded-full filter blur-[120px] pointer-events-none" />
-      <div className="absolute top-10 right-10 w-72 h-72 bg-[#F4F0EA]/60 rounded-full filter blur-[80px] pointer-events-none" />
-      <div className="absolute inset-0 bg-grid-dots opacity-60 pointer-events-none" />
-
-      <div className="max-w-[1280px] mx-auto px-6 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center relative z-10">
+    <section id="hero" className="relative min-h-[680px] lg:min-h-[760px] bg-[#FBF8F3] flex items-center overflow-hidden font-sans border-b border-[#EAE3D9]/70">
+      
+      {/* Background Image Layer & Soft Ivory Overlay */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <img
+          src="/hero-bg.png"
+          alt="DealPilot Procurement & Negotiation"
+          className="w-full h-full object-cover object-right lg:object-right-bottom"
+        />
+        {/* Soft Warm Vignette Overlays for Legibility */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#FBF8F3] via-[#FBF8F3]/95 to-transparent lg:hidden" />
+        <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-[55%] bg-gradient-to-r from-[#FBF8F3] via-[#FBF8F3]/90 to-transparent" />
         
-        {/* Left Column */}
-        <div className="lg:col-span-6 space-y-5 sm:space-y-6">
+        {/* Subtle Decorative Ambient Glows */}
+        <div className="absolute top-10 left-1/4 w-[450px] h-[450px] bg-[#7668D8]/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#E88AAE]/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-10 py-12 lg:py-16 relative z-10 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-flex items-center space-x-2.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#F4F0EA] to-white border border-[#EAE3D9] text-[11px] font-sans font-medium tracking-wide text-[#0F1E3A] shadow-xs"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3B82F6] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2457D6]"></span>
-            </span>
-            <span className="font-semibold text-[#0F1E3A]">Mandate-Bound Procurement Engine</span>
-          </motion.div>
-
-          {/* Editorial Headline using Cormorant Garamond */}
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="font-serif text-4xl sm:text-5xl lg:text-[60px] xl:text-[64px] font-normal tracking-[-0.01em] text-[#0F1E3A] leading-[1.10] sm:leading-[1.08]"
-          >
-            Procurement that{' '}
-            <span className="bg-gradient-to-r from-[#2457D6] via-[#3B82F6] to-[#2457D6] bg-clip-text text-transparent italic font-normal font-serif block sm:inline">
-              negotiates for you.
-            </span>
-          </motion.h1>
-
-          {/* Supporting Text */}
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="text-[#162A4A]/80 text-base sm:text-lg leading-relaxed max-w-xl font-normal font-sans tracking-[-0.01em]"
-          >
-            Tell DealPilot what your business needs. It matches you with sellers, negotiates within their rules and your budget, and returns the best available deal.
-          </motion.p>
-
-          {/* Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-wrap items-center gap-3.5 pt-1 font-sans"
-          >
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Link
-                to="/auth"
-                className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-[#0F1E3A] via-[#162A4A] to-[#2457D6] hover:from-[#2457D6] hover:to-[#3B82F6] text-white rounded-xl font-semibold text-xs sm:text-sm tracking-wide shadow-md shadow-blue-950/20 hover:shadow-lg hover:shadow-blue-500/25 transition-all space-x-2"
-              >
-                <span>Start Procuring</span>
-                <ArrowRight className="w-4 h-4 text-[#6E9FEF]" />
-              </Link>
+          {/* ================= LEFT COLUMN: HERO HEADLINE & ACTIONS (Shifted Left) ================= */}
+          <div className="lg:col-span-6 xl:col-span-6 space-y-6 sm:space-y-7 max-w-2xl lg:pl-2">
+            
+            {/* Sleek Minimal Category Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#7668D8]/10 border border-[#7668D8]/20 text-xs font-extrabold text-[#7668D8] shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#E88AAE] animate-pulse" />
+              <span className="tracking-wide uppercase text-[11px]">AI-POWERED B2B PROCUREMENT ENGINE</span>
             </motion.div>
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => scrollTo('how-it-works')}
-              className="inline-flex items-center justify-center px-6 py-3 bg-white/90 hover:bg-[#EAF1FF]/60 text-[#0F1E3A] border border-[#A7B6D0]/40 rounded-xl font-semibold text-xs sm:text-sm tracking-wide transition-all shadow-xs"
+            {/* Main Headline */}
+            <motion.h1
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-4xl sm:text-5xl lg:text-[62px] font-black text-[#20284F] leading-[1.06] tracking-tight"
             >
-              See How It Works
-            </motion.button>
-          </motion.div>
-
-        </div>
-
-        {/* Right Column: Realistic Product UI Mockup with Depth & Floating Badges */}
-        <motion.div
-          initial={{ opacity: 0, x: 25, y: 15 }}
-          animate={{ opacity: 1, x: 0, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="lg:col-span-6 font-sans relative"
-        >
-          {/* Floating Pill Top Right */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="hidden sm:flex items-center space-x-2 absolute -top-5 -right-3 z-20 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#3B82F6]/30 shadow-md text-[11px] font-semibold text-[#0F1E3A]"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#3B82F6] animate-pulse"></span>
-            <span>AI Multi-Seller Matching</span>
-          </motion.div>
-
-          {/* Floating Pill Bottom Left */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.95 }}
-            className="hidden sm:flex items-center space-x-2 absolute -bottom-5 -left-3 z-20 bg-[#0F1E3A] text-white px-3.5 py-1.5 rounded-full border border-[#2457D6]/40 shadow-lg text-[11px] font-semibold"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-            <span>Policy Bounds Verified ✓</span>
-          </motion.div>
-
-          {/* Main Card Container with Glow & Shadow */}
-          <div className="bg-white border border-[#A7B6D0]/40 rounded-2xl shadow-xl shadow-blue-950/10 overflow-hidden text-xs relative z-10 glow-blue">
-            
-            {/* Mockup Header Bar */}
-            <div className="bg-gradient-to-r from-[#0F1E3A] to-[#162A4A] px-4.5 py-3 flex items-center justify-between text-white">
-              <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6] animate-pulse"></span>
-                <span className="font-semibold text-xs tracking-tight">Request #14082 • BrightPath Institute</span>
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-[#2457D6]/30 text-[#6E9FEF] border border-[#3B82F6]/40 font-mono">
-                IN NEGOTIATION
+              Smarter Procurement.{' '}
+              <span className="bg-gradient-to-r from-[#7668D8] via-[#AB70C5] to-[#E88AAE] bg-clip-text text-transparent block mt-1">
+                Better Deals.
               </span>
-            </div>
+            </motion.h1>
 
-            {/* Requirement Summary Section */}
-            <div className="p-4.5 lg:p-5 border-b border-[#A7B6D0]/20 bg-gradient-to-b from-[#F8FAFC] to-white space-y-2.5">
-              <div className="text-[10px] font-semibold text-[#2457D6] uppercase tracking-wider font-sans flex items-center justify-between">
-                <span>Buyer Requirements (Single Input)</span>
-                <span className="font-mono text-[10px] text-[#A7B6D0]">3 Items</span>
-              </div>
-              
-              <div className="space-y-1 font-mono text-[#162A4A]">
-                <div className="flex justify-between py-0.5 text-xs">
-                  <span className="font-sans text-[#162A4A]">30 × Keyboards</span>
-                  <span className="font-semibold text-[#0F1E3A]">30</span>
-                </div>
-                <div className="flex justify-between py-0.5 text-xs">
-                  <span className="font-sans text-[#162A4A]">30 × Mice</span>
-                  <span className="font-semibold text-[#0F1E3A]">30</span>
-                </div>
-                <div className="flex justify-between py-0.5 text-xs">
-                  <span className="font-sans text-[#162A4A]">30 × Headsets</span>
-                  <span className="font-semibold text-[#0F1E3A]">30</span>
-                </div>
-                <div className="flex justify-between pt-1.5 pb-0.5 border-t border-[#A7B6D0]/30 text-xs font-semibold text-[#0F1E3A]">
-                  <span className="font-sans">Target Budget</span>
-                  <span className="text-[#2457D6] font-bold">₹1,00,000</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Matching Sellers Table */}
-            <div className="p-4.5 lg:p-5 space-y-2.5 bg-white">
-              <div className="text-[10px] font-semibold text-[#162A4A]/70 uppercase tracking-wider font-sans">Matching Sellers & Concessions</div>
-              
-              <div className="space-y-2">
-                {/* Seller A */}
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.55 }}
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-[#A7B6D0]/30 bg-[#F8FAFC]"
-                >
-                  <div className="font-medium text-[#162A4A]">Seller A</div>
-                  <div className="font-mono text-[#162A4A]">₹1,04,200</div>
-                </motion.div>
-
-                {/* Seller B (Best Deal) */}
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.7 }}
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-[#10B981]/50 bg-gradient-to-r from-[#ECFDF5] to-[#D1FAE5]/40 shadow-xs"
-                >
-                  <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-[#0F1E3A]">Seller B</span>
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-gradient-to-r from-[#10B981] to-[#059669] text-white tracking-wider font-sans shadow-xs">
-                      BEST DEAL
-                    </span>
-                  </div>
-                  <div className="font-mono font-bold text-[#059669] text-sm">₹99,543</div>
-                </motion.div>
-
-                {/* Seller C */}
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.85 }}
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-[#A7B6D0]/30 bg-[#F8FAFC]"
-                >
-                  <div className="font-medium text-[#162A4A]">Seller C</div>
-                  <div className="font-mono text-[#162A4A]">₹1,02,800</div>
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Bottom Dark Navy Bar */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 1.0 }}
-              className="bg-gradient-to-r from-[#0F1E3A] via-[#162A4A] to-[#0F1E3A] text-white px-4.5 py-3 flex items-center justify-between text-xs border-t border-[#2457D6]/30"
+            {/* Subtitle */}
+            <motion.p
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-[#5A6588] text-base sm:text-lg leading-relaxed font-normal max-w-xl"
             >
-              <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-                <span className="font-semibold text-[#34D399] font-mono">₹8,457 saved</span>
-                <span className="text-[#A7B6D0]/80 font-sans">vs list price</span>
+              Tell DealPilot what your business needs. Our AI helps you compare suppliers, negotiate within your rules, and secure better deals — without losing control.
+            </motion.p>
+
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-wrap items-center gap-4 pt-1"
+            >
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  to="/auth"
+                  className="inline-flex items-center justify-center px-7 py-3.5 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white rounded-2xl font-bold text-sm tracking-wide shadow-lg shadow-[#20284F]/15 transition-all space-x-2"
+                >
+                  <span>Start Procurement</span>
+                  <ArrowRight className="w-4.5 h-4.5 text-[#E88AAE]" />
+                </Link>
+              </motion.div>
+
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => scrollTo('how-it-works')}
+                className="inline-flex items-center justify-center px-6 py-3.5 bg-white/90 hover:bg-white text-[#20284F] border border-[#EAE3D9] rounded-2xl font-bold text-sm tracking-wide transition-all shadow-xs hover:border-[#7668D8]/40"
+              >
+                See How It Works
+              </motion.button>
+            </motion.div>
+
+            {/* Small Trust Indicators Below */}
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-4 pt-2 text-xs font-semibold text-[#5A6588]"
+            >
+              <span className="flex items-center space-x-1.5 text-[#20284F]">
+                <Check className="w-4 h-4 text-[#7668D8]" />
+                <span>AI-powered negotiation</span>
+              </span>
+
+              <span className="flex items-center space-x-1.5 text-[#20284F]">
+                <Check className="w-4 h-4 text-[#7668D8]" />
+                <span>Supplier comparison</span>
+              </span>
+
+              <span className="flex items-center space-x-1.5 text-[#20284F]">
+                <Check className="w-4 h-4 text-[#E88AAE]" />
+                <span>Margin protection</span>
+              </span>
+
+              <span className="flex items-center space-x-1.5 text-[#20284F]">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Auditable deals</span>
+              </span>
+            </motion.div>
+
+          </div>
+
+          {/* ================= RIGHT COLUMN: SCENE & FLOATING SOFT GLASS CARDS ================= */}
+          <div className="lg:col-span-6 xl:col-span-6 relative min-h-[420px] lg:min-h-[520px] flex flex-col justify-between items-end">
+            
+            {/* 1. Buyer Request Card (Top Right) */}
+            <motion.div
+              initial={{ opacity: 0, y: -15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="bg-white/85 backdrop-blur-md border border-[#7668D8]/20 shadow-xl rounded-2xl p-4 w-72 text-xs font-sans space-y-2 hover:bg-white/95 transition-all self-end lg:-mr-2"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center space-x-1.5 text-[#20284F] font-bold">
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#7668D8]" />
+                  <span className="uppercase text-[10px] tracking-wider">BUYER REQUEST</span>
+                </div>
+                <span className="text-[9px] font-mono font-semibold bg-[#7668D8]/10 text-[#7668D8] px-2 py-0.5 rounded-md">
+                  Active
+                </span>
               </div>
-              <div className="flex items-center space-x-1.5 text-[#38BDF8] font-medium text-[11px] font-sans">
-                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                <span>Policy Approved ✓</span>
+
+              <div className="space-y-1 font-mono text-[#5A6588] text-[11px]">
+                <div className="flex justify-between py-0.5">
+                  <span>30 Keyboards</span>
+                  <span className="font-bold text-[#20284F]">Qty 30</span>
+                </div>
+                <div className="flex justify-between py-0.5 border-t border-slate-100">
+                  <span>30 Mice</span>
+                  <span className="font-bold text-[#20284F]">Qty 30</span>
+                </div>
+                <div className="flex justify-between py-0.5 border-t border-slate-100">
+                  <span>30 Headsets</span>
+                  <span className="font-bold text-[#20284F]">Qty 30</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* 2. Supplier Options Card (Middle Right) */}
+            <motion.div
+              initial={{ opacity: 0, x: 20, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.55 }}
+              className="bg-white/90 backdrop-blur-md border border-[#7668D8]/25 shadow-xl rounded-2xl p-3.5 w-68 text-xs font-sans space-y-2 self-center lg:self-end lg:mr-8 my-2"
+            >
+              <div className="flex items-center justify-between text-[#20284F] font-bold border-b border-slate-100 pb-1.5">
+                <div className="flex items-center space-x-1.5">
+                  <Users className="w-3.5 h-3.5 text-[#7668D8]" />
+                  <span className="text-[10px] uppercase tracking-wider">SUPPLIER OPTIONS</span>
+                </div>
+                <span className="text-[9px] text-slate-400 font-mono">3 Matches</span>
+              </div>
+
+              <div className="space-y-1 font-mono text-[11px]">
+                <div className="flex justify-between items-center text-[#5A6588]">
+                  <span>Supplier A</span>
+                  <span>₹1,82,000</span>
+                </div>
+                <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                  <span>Supplier B</span>
+                  <span>₹1,76,500</span>
+                </div>
+                <div className="flex justify-between items-center text-[#5A6588]">
+                  <span>Supplier C</span>
+                  <span>₹1,79,200</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* 3. AI Negotiation Card (Lower Middle) */}
+            <motion.div
+              initial={{ opacity: 0, x: -15, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="bg-white/85 backdrop-blur-md border border-[#E88AAE]/30 shadow-lg rounded-2xl p-3.5 w-64 text-xs font-sans space-y-2 self-start lg:self-end lg:mr-20 my-2"
+            >
+              <div className="flex items-center space-x-1.5 text-[#E88AAE] font-bold border-b border-pink-100 pb-1.5">
+                <Cpu className="w-3.5 h-3.5 text-[#E88AAE] animate-pulse" />
+                <span className="text-[10px] uppercase tracking-wider">AI NEGOTIATION</span>
+              </div>
+              <div className="space-y-1 text-[11px] text-[#5A6588] font-medium">
+                <div className="flex items-center space-x-1.5 italic text-[#20284F]">
+                  <span>"Negotiating within your budget..."</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* 4. Final Deal Card (Bottom Right) */}
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.85 }}
+              className="bg-white/95 backdrop-blur-md border border-emerald-300 shadow-xl rounded-2xl p-4 w-60 text-xs font-sans space-y-1.5 self-end lg:-mr-2"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
+                  <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">FINAL DEAL</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  8.5% savings
+                </span>
+              </div>
+              
+              <div className="flex items-baseline justify-between pt-1">
+                <span className="text-xl font-black text-[#20284F]">₹1,71,900</span>
+                <span className="text-[10px] font-bold text-emerald-600">
+                  Best Deal ✓
+                </span>
               </div>
             </motion.div>
 
           </div>
-        </motion.div>
 
+        </div>
       </div>
     </section>
   );

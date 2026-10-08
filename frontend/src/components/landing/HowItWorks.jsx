@@ -1,32 +1,32 @@
 import React from 'react';
-import { Edit3, Users, Cpu, Award } from 'lucide-react';
+import { FilePlus, Search, Cpu, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function HowItWorks() {
   const steps = [
     {
       num: '01',
-      title: 'Tell us what you need',
-      desc: 'Enter products, quantities, budget and deadline in plain text or structured items.',
-      icon: Edit3
+      title: 'Create Procurement Request',
+      desc: 'Specify your product requirements, required quantities, and target budget limits.',
+      icon: FilePlus
     },
     {
       num: '02',
-      title: 'Match with sellers',
-      desc: 'DealPilot finds verified sellers whose catalogs cover your required items.',
-      icon: Users
+      title: 'Find Relevant Suppliers',
+      desc: 'DealPilot automatically scans verified suppliers matching your item specifications.',
+      icon: Search
     },
     {
       num: '03',
-      title: 'Negotiate automatically',
-      desc: 'DealPilot negotiates round-by-round while strictly respecting seller policy rules.',
+      title: 'AI Negotiates Within Your Rules',
+      desc: 'Our AI agent negotiates prices dynamically while adhering strictly to margin and discount rules.',
       icon: Cpu
     },
     {
       num: '04',
-      title: 'Choose the best deal',
-      desc: 'Compare Lowest Cost and Fastest Delivery plans, confirm and pay via Razorpay.',
-      icon: Award
+      title: 'Approve the Best Deal',
+      desc: 'Review verified offers, select the optimal pricing plan, and confirm checkout seamlessly.',
+      icon: CheckCircle
     }
   ];
 
@@ -34,7 +34,7 @@ export default function HowItWorks() {
     hidden: {},
     visible: {
       transition: {
-        staggerChildren: 0.15
+        staggerChildren: 0.12
       }
     }
   };
@@ -49,35 +49,36 @@ export default function HowItWorks() {
   };
 
   return (
-    <section id="how-it-works" className="bg-white py-18 lg:py-24 border-b border-[#A7B6D0]/30 font-sans relative overflow-hidden">
-      {/* Background aura */}
-      <div className="absolute top-1/2 left-0 w-80 h-80 bg-[#3B82F6]/5 rounded-full filter blur-[100px] pointer-events-none" />
-
-      <div className="max-w-[1280px] mx-auto px-6 sm:px-8 space-y-12 lg:space-y-14 relative z-10">
+    <section id="how-it-works" className="bg-[#FBF8F3] py-20 lg:py-28 border-b border-[#EAE3D9]/70 font-sans relative overflow-hidden">
+      
+      <div className="max-w-[1280px] mx-auto px-6 sm:px-8 space-y-14 relative z-10">
         
         {/* Section Heading */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-3xl space-y-2"
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-3xl mx-auto space-y-3"
         >
-          <span className="inline-block px-3 py-1 rounded-full bg-[#EAF1FF] border border-[#2457D6]/20 text-[10px] sm:text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-[#2457D6] shadow-2xs">
-            Process Overview
+          <span className="inline-block px-3.5 py-1 rounded-full bg-[#7668D8]/10 border border-[#7668D8]/20 text-xs font-extrabold uppercase tracking-wider text-[#7668D8]">
+            SIMPLE 4-STEP PROCESS
           </span>
-          <h2 className="font-serif text-3xl sm:text-4xl lg:text-[50px] font-normal text-[#0F1E3A] leading-[1.12] sm:leading-[1.10] tracking-tight">
-            One requirement. Multiple sellers. One better deal.
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#20284F] tracking-tight">
+            How DealPilot Works
           </h2>
+          <p className="text-[#5A6588] text-base max-w-2xl mx-auto">
+            Automated procurement negotiation designed to protect budgets and supplier margins.
+          </p>
         </motion.div>
 
-        {/* Process Steps Container */}
+        {/* 4-Step Horizontal Cards Grid */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-80px' }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 relative"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {steps.map((step, idx) => {
             const Icon = step.icon;
@@ -85,28 +86,31 @@ export default function HowItWorks() {
               <motion.div
                 key={step.num}
                 variants={itemVariants}
-                className="bg-[#F8FAFC] rounded-2xl p-6 border border-[#A7B6D0]/30 hover:border-[#3B82F6]/40 hover:bg-white shadow-xs hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 group transform hover:-translate-y-1.5 space-y-4 relative"
+                className="bg-white rounded-3xl p-7 border border-[#EAE3D9] hover:border-[#7668D8]/40 shadow-xs hover:shadow-xl hover:shadow-[#20284F]/5 transition-all duration-300 group space-y-5 relative flex flex-col justify-between"
               >
-                {/* Connecting Gradient Line on Top */}
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  whileInView={{ scaleX: 1 }}
-                  viewport={{ once: true, margin: '-80px' }}
-                  transition={{ duration: 0.6, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-[#2457D6] to-[#3B82F6] origin-left rounded-full"
-                />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-3xl font-mono text-[#7668D8]">
+                      {step.num}
+                    </span>
+                    <div className="w-10 h-10 rounded-2xl bg-[#FBF8F3] border border-[#EAE3D9] text-[#20284F] group-hover:bg-gradient-to-br group-hover:from-[#20284F] group-hover:to-[#7668D8] group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                  </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="font-mono text-xs font-bold text-[#2457D6] bg-[#EAF1FF] px-2.5 py-1 rounded-md border border-[#2457D6]/20 tracking-wider">
-                    {step.num}
-                  </span>
-                  <div className="w-9 h-9 rounded-xl bg-white border border-[#A7B6D0]/40 group-hover:bg-gradient-to-br group-hover:from-[#2457D6] group-hover:to-[#3B82F6] text-[#0F1E3A] group-hover:text-white flex items-center justify-center transition-all duration-300 shadow-2xs">
-                    <Icon className="w-4.5 h-4.5" />
+                  <div className="space-y-2">
+                    <h3 className="font-extrabold text-lg text-[#20284F] group-hover:text-[#7668D8] transition-colors leading-snug">
+                      {step.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#5A6588] leading-relaxed font-normal">
+                      {step.desc}
+                    </p>
                   </div>
                 </div>
 
-                <h3 className="font-sans font-bold text-base text-[#0F1E3A] group-hover:text-[#2457D6] transition-colors tracking-tight">{step.title}</h3>
-                <p className="font-sans text-xs sm:text-sm leading-relaxed text-[#162A4A]/80 font-normal">{step.desc}</p>
+                <div className="pt-2 border-t border-slate-100 text-[11px] font-mono text-slate-400">
+                  Step {step.num} of 04
+                </div>
               </motion.div>
             );
           })}

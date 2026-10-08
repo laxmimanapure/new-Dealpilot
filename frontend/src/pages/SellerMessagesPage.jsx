@@ -47,54 +47,54 @@ export default function SellerMessagesPage() {
   };
 
   return (
-    <div className="max-w-[1280px] mx-auto px-4 sm:px-8 py-8 space-y-6 font-sans">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-8 py-8 space-y-6 font-sans text-[#20284F]">
       
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Messages & Buyer Desk</h1>
-        <p className="text-xs text-slate-500 font-medium mt-0.5">
+        <h1 className="text-2xl font-extrabold text-[#20284F] tracking-tight">Messages & Buyer Desk</h1>
+        <p className="text-xs text-[#20284F]/70 font-medium mt-0.5">
           Direct B2B communication with buyers and AI negotiation session logs
         </p>
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden grid grid-cols-1 md:grid-cols-3 min-h-[500px]">
+      <div className="bg-white border border-[#EAE3D9] rounded-2xl shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 min-h-[500px]">
         
         {/* Left Conversations Sidebar */}
-        <div className="border-r border-slate-100 p-4 space-y-3">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2">Conversations</h3>
+        <div className="border-r border-[#EAE3D9]/60 p-4 space-y-3">
+          <h3 className="text-xs font-bold text-[#20284F]/50 uppercase tracking-wider px-2">Conversations</h3>
           <div className="space-y-1">
             {chats.map(chat => (
               <button
                 key={chat.id}
                 onClick={() => setActiveChat(chat.id)}
-                className={`w-full text-left p-3 rounded-2xl transition-all ${
-                  activeChat === chat.id ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50'
+                className={`w-full text-left p-3 rounded-xl transition-all ${
+                  activeChat === chat.id ? 'bg-[#FAF6F0] border border-[#EAE3D9]' : 'hover:bg-[#FAF6F0]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 text-xs">{chat.buyerCompany}</span>
-                  <span className="text-[10px] text-slate-400">{chat.timeAgo}</span>
+                  <span className="font-bold text-[#20284F] text-xs">{chat.buyerCompany}</span>
+                  <span className="text-[10px] text-[#20284F]/50">{chat.timeAgo}</span>
                 </div>
-                <div className="text-[11px] text-slate-500 truncate mt-1">{chat.lastMessage}</div>
+                <div className="text-[11px] text-[#20284F]/60 truncate mt-1">{chat.lastMessage}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Right Active Chat Panel */}
-        <div className="md:col-span-2 flex flex-col justify-between p-6 bg-slate-50/50">
+        <div className="md:col-span-2 flex flex-col justify-between p-6 bg-[#FAF6F0]/40">
           
           {/* Chat Header */}
-          <div className="border-b border-slate-200/80 pb-4 flex items-center justify-between">
+          <div className="border-b border-[#EAE3D9] pb-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white font-bold text-xs flex items-center justify-center">
                 {currentChat.buyerCompany.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">{currentChat.buyerCompany}</h4>
-                <div className="text-[11px] text-slate-500">Contact: {currentChat.buyerName}</div>
+                <h4 className="font-bold text-[#20284F] text-sm">{currentChat.buyerCompany}</h4>
+                <div className="text-[11px] text-[#20284F]/60">Contact: {currentChat.buyerName}</div>
               </div>
             </div>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               Active Negotiation
             </span>
           </div>
@@ -105,13 +105,13 @@ export default function SellerMessagesPage() {
               <div key={idx} className={`flex ${m.sender === 'seller' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-md p-3.5 rounded-2xl text-xs space-y-1 ${
                   m.sender === 'seller'
-                    ? 'bg-blue-600 text-white rounded-br-none shadow-xs'
+                    ? 'bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white rounded-br-none shadow-sm'
                     : m.sender === 'system'
-                    ? 'bg-purple-50 border border-purple-200 text-purple-900 rounded-2xl w-full'
-                    : 'bg-white border border-slate-200 text-slate-900 rounded-bl-none shadow-2xs'
+                    ? 'bg-[#7668D8]/10 border border-[#7668D8]/20 text-[#20284F] rounded-2xl w-full'
+                    : 'bg-white border border-[#EAE3D9] text-[#20284F] rounded-bl-none shadow-xs'
                 }`}>
                   <p>{m.text}</p>
-                  <span className={`text-[10px] block text-right ${m.sender === 'seller' ? 'text-blue-100' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] block text-right ${m.sender === 'seller' ? 'text-white/80' : 'text-[#20284F]/50'}`}>
                     {m.time}
                   </span>
                 </div>
@@ -120,17 +120,17 @@ export default function SellerMessagesPage() {
           </div>
 
           {/* Message Input Box */}
-          <form onSubmit={handleSendMessage} className="pt-4 border-t border-slate-200/80 flex items-center space-x-3">
+          <form onSubmit={handleSendMessage} className="pt-4 border-t border-[#EAE3D9] flex items-center space-x-3">
             <input
               type="text"
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               placeholder="Type your message or policy clarification..."
-              className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="flex-1 bg-white border border-[#EAE3D9] rounded-xl px-4 py-2.5 text-xs text-[#20284F] placeholder-[#20284F]/40 focus:outline-none focus:ring-2 focus:ring-[#7668D8]/20"
             />
             <button
               type="submit"
-              className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-all"
+              className="p-2.5 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:opacity-95 text-white rounded-xl shadow-md transition-all"
             >
               <Send className="w-4 h-4" />
             </button>

@@ -96,29 +96,29 @@ export default function PlanComparisonPage({ onOpenAudit }) {
   };
 
   if (loading) {
-    return <div className="p-12 text-center text-slate-400 font-sans">Loading ranked procurement deals...</div>;
+    return <div className="p-16 text-center text-xs text-[#5A6588] font-bold">Loading ranked procurement deals...</div>;
   }
 
   const bestDeal = plans.find(p => p.is_best_deal) || plans[0];
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-[#0F1E3A]">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-[#20284F] bg-[#FBF8F3]">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#EAE3D9] pb-6">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-200 font-semibold">
+            <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-[#7668D8]/10 text-[#7668D8] border border-[#7668D8]/20 font-extrabold">
               REQ-#{id}
             </span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[#5A6588] font-bold">
               Target Budget: ₹{requirement?.total_budget?.toLocaleString('en-IN')}
             </span>
           </div>
-          <h1 className="text-3xl font-extrabold text-[#0F1E3A] tracking-tight mt-1">
+          <h1 className="text-3xl font-extrabold text-[#20284F] tracking-tight mt-1">
             Ranked Procurement Deals
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-[#5A6588] text-xs sm:text-sm mt-1 font-normal">
             Offers evaluated against seller product rules, stock availability, and buyer budget constraints.
           </p>
         </div>
@@ -126,7 +126,7 @@ export default function PlanComparisonPage({ onOpenAudit }) {
         {onOpenAudit && (
           <button
             onClick={onOpenAudit}
-            className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-all flex items-center space-x-1.5 shadow-2xs"
+            className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all flex items-center space-x-1.5 shadow-2xs"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Global Audit Log</span>
@@ -136,10 +136,10 @@ export default function PlanComparisonPage({ onOpenAudit }) {
 
       {/* Offers Grid */}
       {plans.length === 0 ? (
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center space-y-3">
-          <AlertOctagon className="w-12 h-12 text-slate-400 mx-auto" />
-          <h3 className="text-base font-bold text-slate-800">No Matched Seller Deals</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
+        <div className="bg-white border border-[#EAE3D9] rounded-3xl p-12 text-center space-y-3">
+          <AlertOctagon className="w-12 h-12 text-[#5A6588] mx-auto" />
+          <h3 className="text-base font-extrabold text-[#20284F]">No Matched Seller Deals</h3>
+          <p className="text-xs text-[#5A6588] max-w-md mx-auto leading-relaxed">
             No active sellers in MongoDB could fulfill this requirement within stock or minimum price floor rules.
           </p>
         </div>
@@ -150,47 +150,47 @@ export default function PlanComparisonPage({ onOpenAudit }) {
               key={plan.offer_id || idx}
               className={`rounded-3xl p-6 border transition-all flex flex-col justify-between space-y-5 relative overflow-hidden ${
                 plan.is_best_deal 
-                  ? 'bg-gradient-to-b from-blue-50/80 via-white to-indigo-50/40 border-blue-300 shadow-md ring-2 ring-blue-500/20' 
-                  : 'bg-white border-slate-200/80 shadow-xs hover:shadow-md'
+                  ? 'bg-gradient-to-br from-[#FAF6F0] via-white to-[#FBF8F3] border-[#7668D8] shadow-md ring-2 ring-[#7668D8]/20' 
+                  : 'bg-white border-[#EAE3D9] shadow-xs hover:shadow-md'
               }`}
             >
               {plan.is_best_deal && (
-                <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-bl-xl shadow-xs flex items-center space-x-1">
-                  <Award className="w-3.5 h-3.5" />
+                <div className="absolute top-0 right-0 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white text-[10px] font-extrabold uppercase tracking-wider px-3.5 py-1 rounded-bl-xl shadow-2xs flex items-center space-x-1">
+                  <Award className="w-3.5 h-3.5 text-[#E88AAE]" />
                   <span>BEST DEAL</span>
                 </div>
               )}
 
               <div className="space-y-4 pt-1">
                 <div>
-                  <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Seller Partner</span>
-                  <h3 className="text-lg font-bold text-[#0F1E3A]">{plan.seller_name}</h3>
+                  <span className="text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider">Seller Partner</span>
+                  <h3 className="text-lg font-extrabold text-[#20284F]">{plan.seller_name}</h3>
                 </div>
 
                 {/* Amount Hero */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <div className="text-[11px] text-slate-500">Negotiated Landed Amount</div>
-                  <div className="text-2xl sm:text-3xl font-bold text-[#0F1E3A] font-mono tracking-tight">
+                <div className="bg-[#FAF6F0] p-4 rounded-2xl border border-[#EAE3D9]">
+                  <div className="text-[11px] text-[#5A6588] font-bold">Negotiated Landed Amount</div>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#20284F] font-mono tracking-tight">
                     ₹{plan.negotiated_amount?.toLocaleString('en-IN')}
                   </div>
-                  <div className="text-xs font-semibold text-emerald-600 mt-1">
+                  <div className="text-xs font-extrabold text-emerald-700 mt-1">
                     Save ₹{plan.savings?.toLocaleString('en-IN')} off list price
                   </div>
                 </div>
 
                 {/* Items & Status */}
-                <div className="space-y-2 text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-100">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-400">List Price Total:</span>
-                    <span className="font-mono text-slate-800">₹{plan.original_amount?.toLocaleString('en-IN')}</span>
+                <div className="space-y-2 text-xs text-[#5A6588] bg-white p-3.5 rounded-2xl border border-[#EAE3D9]">
+                  <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
+                    <span className="text-[#5A6588] font-bold">List Price Total:</span>
+                    <span className="font-mono font-extrabold text-[#20284F]">₹{plan.original_amount?.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-400">Lead Time:</span>
-                    <span className="font-semibold text-slate-800">{plan.lead_time_days} Days</span>
+                  <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
+                    <span className="text-[#5A6588] font-bold">Lead Time:</span>
+                    <span className="font-extrabold text-[#20284F]">{plan.lead_time_days} Days</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-400">Budget Status:</span>
-                    <span className={`font-semibold ${plan.status === 'VALID' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <span className="text-[#5A6588] font-bold">Budget Status:</span>
+                    <span className={`font-extrabold ${plan.status === 'VALID' ? 'text-emerald-700' : 'text-amber-700'}`}>
                       {plan.status === 'VALID' ? 'Within Budget' : 'Over Budget'}
                     </span>
                   </div>
@@ -198,12 +198,12 @@ export default function PlanComparisonPage({ onOpenAudit }) {
 
                 {/* Why This Deal Explanation */}
                 {plan.why_this_deal && plan.why_this_deal.length > 0 && (
-                  <div className="space-y-1 pt-1">
-                    <div className="text-[11px] font-bold text-slate-700">Why this offer was selected:</div>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="text-[11px] font-extrabold text-[#20284F]">Why this offer was selected:</div>
                     <ul className="space-y-1">
                       {plan.why_this_deal.map((reason, rIdx) => (
-                        <li key={rIdx} className="text-[11px] text-slate-600 flex items-start space-x-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <li key={rIdx} className="text-[11px] text-[#5A6588] flex items-start space-x-1.5 font-normal">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                           <span>{reason}</span>
                         </li>
                       ))}
@@ -215,13 +215,13 @@ export default function PlanComparisonPage({ onOpenAudit }) {
               {/* Action Button */}
               <button
                 onClick={() => handleConfirmPlan(plan)}
-                className={`w-full py-3 text-xs font-bold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 ${
+                className={`w-full py-3 text-xs font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 ${
                   plan.is_best_deal
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25'
-                    : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    ? 'bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white shadow-[#20284F]/10'
+                    : 'bg-[#20284F] hover:bg-[#352F6E] text-white'
                 }`}
               >
-                <CreditCard className="w-4 h-4" />
+                <CreditCard className="w-4 h-4 text-[#E88AAE]" />
                 <span>Confirm & Pay This Deal</span>
               </button>
             </div>
@@ -231,63 +231,63 @@ export default function PlanComparisonPage({ onOpenAudit }) {
 
       {/* Confirmation & Razorpay Modal */}
       {isCheckoutOpen && selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#20284F]/60 backdrop-blur-xs font-sans">
+          <div className="bg-white border border-[#EAE3D9] rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-6">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center justify-between border-b border-[#EAE3D9] pb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <div className="w-10 h-10 rounded-2xl bg-[#7668D8]/10 border border-[#7668D8]/20 flex items-center justify-center text-[#7668D8]">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#0F1E3A]">Confirm Order & Razorpay Checkout</h3>
-                  <p className="text-xs text-slate-500">Backend HMAC Verified Payment Flow</p>
+                  <h3 className="text-base font-extrabold text-[#20284F]">Confirm Order & Razorpay Checkout</h3>
+                  <p className="text-xs text-[#5A6588]">Backend HMAC Verified Payment Flow</p>
                 </div>
               </div>
             </div>
 
             {!paymentResult ? (
               <div className="space-y-4">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 text-xs text-slate-600">
+                <div className="bg-[#FAF6F0] p-4 rounded-2xl border border-[#EAE3D9] space-y-2 text-xs text-[#5A6588]">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Selected Seller:</span>
-                    <strong className="text-slate-900">{selectedPlan.seller_name}</strong>
+                    <span className="text-[#5A6588] font-bold">Selected Seller:</span>
+                    <strong className="text-[#20284F]">{selectedPlan.seller_name}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Negotiated Amount:</span>
-                    <span className="font-mono text-slate-900 font-bold">₹{selectedPlan.negotiated_amount?.toLocaleString('en-IN')}</span>
+                    <span className="text-[#5A6588] font-bold">Negotiated Amount:</span>
+                    <span className="font-mono text-[#20284F] font-extrabold">₹{selectedPlan.negotiated_amount?.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-sm text-[#0F1E3A]">
+                  <div className="flex justify-between border-t border-[#EAE3D9] pt-2 font-extrabold text-sm text-[#20284F]">
                     <span>Total Landed Amount:</span>
-                    <span className="font-mono text-blue-600">₹{selectedPlan.negotiated_amount?.toLocaleString('en-IN')}</span>
+                    <span className="font-mono text-[#7668D8]">₹{selectedPlan.negotiated_amount?.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
                 {/* Failure Simulator Checkbox */}
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-center justify-between">
                   <div className="text-xs">
-                    <div className="font-bold text-amber-800">Simulate Gateway Payment Failure?</div>
-                    <div className="text-[11px] text-amber-600">Test backend failure logging & retry option</div>
+                    <div className="font-extrabold text-amber-800">Simulate Gateway Payment Failure?</div>
+                    <div className="text-[11px] text-amber-700 font-medium">Test backend failure logging & retry option</div>
                   </div>
                   <input
                     type="checkbox"
                     checked={simulateFailure}
                     onChange={(e) => setSimulateFailure(e.target.checked)}
-                    className="w-4 h-4 accent-amber-600 rounded cursor-pointer"
+                    className="w-4 h-4 accent-[#7668D8] rounded cursor-pointer"
                   />
                 </div>
 
                 <div className="flex items-center space-x-3 pt-2">
                   <button
                     onClick={() => setIsCheckoutOpen(false)}
-                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all"
+                    className="flex-1 py-3 bg-white border border-[#EAE3D9] hover:bg-[#FAF6F0] text-[#5A6588] rounded-xl font-bold text-xs transition-all"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleProcessPayment}
                     disabled={isProcessingPayment}
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                    className="flex-1 py-3 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white rounded-xl font-bold text-xs shadow-md shadow-[#20284F]/10 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
                     <span>{isProcessingPayment ? 'Processing Razorpay Payment...' : 'Pay via Razorpay'}</span>
                   </button>
@@ -295,40 +295,40 @@ export default function PlanComparisonPage({ onOpenAudit }) {
               </div>
             ) : paymentResult.success ? (
               <div className="text-center py-6 space-y-4">
-                <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+                <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-700">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-[#0F1E3A]">Payment Verified & Order Confirmed!</h4>
-                  <p className="text-xs text-slate-500 mt-1">Order #{paymentResult.order_number} confirmed in MongoDB.</p>
+                  <h4 className="text-xl font-extrabold text-[#20284F]">Payment Verified & Order Confirmed!</h4>
+                  <p className="text-xs text-[#5A6588] mt-1 font-medium">Order #{paymentResult.order_number} confirmed in MongoDB.</p>
                 </div>
                 <button
                   onClick={() => navigate('/orders')}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                  className="w-full py-3 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white font-bold text-xs rounded-xl shadow-md transition-all"
                 >
                   View My Orders & Audit Trail
                 </button>
               </div>
             ) : (
               <div className="text-center py-6 space-y-4">
-                <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-full flex items-center justify-center mx-auto text-red-500">
+                <div className="w-16 h-16 bg-rose-50 border border-rose-200 rounded-full flex items-center justify-center mx-auto text-rose-600">
                   <AlertOctagon className="w-8 h-8" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-red-600">Payment Failed</h4>
-                  <p className="text-xs text-red-600 mt-1">{paymentResult.message}</p>
+                  <h4 className="text-xl font-extrabold text-rose-600">Payment Failed</h4>
+                  <p className="text-xs text-rose-600 mt-1 font-bold">{paymentResult.message}</p>
                 </div>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setPaymentResult(null)}
-                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center space-x-1"
+                    className="flex-1 py-3 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center space-x-1"
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <RotateCcw className="w-4 h-4 text-[#E88AAE]" />
                     <span>Retry Payment</span>
                   </button>
                   <button
                     onClick={() => navigate('/orders')}
-                    className="flex-1 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-xl transition-all"
+                    className="flex-1 py-3 bg-white border border-[#EAE3D9] text-[#20284F] hover:bg-[#FAF6F0] font-bold text-xs rounded-xl transition-all"
                   >
                     View Orders
                   </button>
@@ -343,3 +343,4 @@ export default function PlanComparisonPage({ onOpenAudit }) {
     </div>
   );
 }
+

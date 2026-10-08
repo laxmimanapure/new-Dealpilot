@@ -75,7 +75,7 @@ export default function ProductImage({
   name = '',
   category = '',
   className = 'w-full h-48 object-cover',
-  containerClassName = 'relative overflow-hidden bg-slate-100'
+  containerClassName = 'relative overflow-hidden bg-[#FAF6F0]'
 }) {
   const [hasError, setHasError] = useState(false);
 
@@ -102,41 +102,33 @@ export default function ProductImage({
     const c = (category || '').toLowerCase();
 
     let IconComponent = Package;
-    let bgColor = 'bg-blue-50 text-blue-600 border-blue-200';
+    let bgColor = 'bg-[#FAF6F0] text-[#7668D8] border-[#EAE3D9]';
 
     if (n.includes('pencil') || n.includes('pen') || c.includes('stationery')) {
       IconComponent = PenTool;
-      bgColor = 'bg-indigo-50 text-indigo-600 border-indigo-200';
     } else if (n.includes('keyboard') || n.includes('mouse') || c.includes('peripheral')) {
       IconComponent = Laptop;
-      bgColor = 'bg-blue-50 text-blue-600 border-blue-200';
     } else if (n.includes('headset') || c.includes('audio')) {
       IconComponent = Headphones;
-      bgColor = 'bg-purple-50 text-purple-600 border-purple-200';
     } else if (n.includes('chair') || c.includes('furniture')) {
       IconComponent = Armchair;
-      bgColor = 'bg-sky-50 text-sky-600 border-sky-200';
     } else if (n.includes('printer') || c.includes('print')) {
       IconComponent = Printer;
-      bgColor = 'bg-emerald-50 text-emerald-600 border-emerald-200';
     } else if (n.includes('coffee')) {
       IconComponent = Coffee;
-      bgColor = 'bg-amber-50 text-amber-600 border-amber-200';
     } else if (n.includes('notebook')) {
       IconComponent = FileText;
-      bgColor = 'bg-purple-50 text-purple-600 border-purple-200';
     } else if (n.includes('monitor')) {
       IconComponent = Monitor;
-      bgColor = 'bg-blue-50 text-blue-600 border-blue-200';
     }
 
     return (
       <div className={`w-full h-full flex flex-col items-center justify-center p-6 border ${bgColor} font-sans`}>
-        <div className="w-14 h-14 rounded-2xl bg-white/80 backdrop-blur-xs flex items-center justify-center shadow-xs mb-2">
-          <IconComponent className="w-7 h-7" />
+        <div className="w-14 h-14 rounded-2xl bg-white/80 backdrop-blur-xs flex items-center justify-center shadow-xs mb-2 border border-[#EAE3D9]">
+          <IconComponent className="w-7 h-7 text-[#7668D8]" />
         </div>
-        <span className="text-xs font-bold text-slate-800 text-center line-clamp-1">{name || 'Catalog Item'}</span>
-        <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{category || 'General'}</span>
+        <span className="text-xs font-bold text-[#20284F] text-center line-clamp-1">{name || 'Catalog Item'}</span>
+        <span className="text-[10px] text-[#20284F]/60 font-medium uppercase tracking-wider">{category || 'General'}</span>
       </div>
     );
   };

@@ -43,17 +43,17 @@ export default function OrdersPage({ onOpenAudit }) {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-[#0F1E3A]">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-[#20284F] bg-[#FBF8F3]">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#EAE3D9] pb-6">
         <div>
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/80 text-xs font-semibold mb-2 shadow-2xs">
-            <ShoppingBag className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#7668D8]/10 text-[#7668D8] border border-[#7668D8]/20 text-xs font-extrabold mb-2 shadow-2xs">
+            <ShoppingBag className="w-3.5 h-3.5 text-[#7668D8]" />
             <span>Order Fulfillment Desk</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-[#0F1E3A] tracking-tight">Confirmed Orders & Payments</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="text-3xl font-extrabold text-[#20284F] tracking-tight">Confirmed Orders & Payments</h1>
+          <p className="text-[#5A6588] text-sm mt-1 font-normal">
             Auditable record of closed procurement deals, landed cost breakdowns, and Razorpay payment statuses stored in MongoDB.
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function OrdersPage({ onOpenAudit }) {
         {onOpenAudit && (
           <button
             onClick={onOpenAudit}
-            className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-all flex items-center space-x-1.5 shadow-2xs"
+            className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all flex items-center space-x-1.5 shadow-2xs"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Audit Trail</span>
@@ -70,12 +70,12 @@ export default function OrdersPage({ onOpenAudit }) {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-slate-400">Loading order records...</div>
+        <div className="p-16 text-center text-xs text-[#5A6588] font-bold">Loading order records...</div>
       ) : orders.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-slate-200 rounded-3xl bg-white shadow-2xs">
-          <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-700 font-bold text-base">No orders recorded yet.</p>
-          <p className="text-slate-400 text-xs mt-1">Submit a procurement requirement and confirm a deal to generate orders.</p>
+        <div className="p-16 text-center border border-dashed border-[#EAE3D9] rounded-3xl bg-white shadow-2xs space-y-2">
+          <ShoppingBag className="w-12 h-12 text-[#5A6588] mx-auto mb-3" />
+          <p className="text-[#20284F] font-extrabold text-base">No orders recorded yet.</p>
+          <p className="text-[#5A6588] text-xs mt-1">Submit a procurement requirement and confirm a deal to generate orders.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -86,33 +86,33 @@ export default function OrdersPage({ onOpenAudit }) {
                 ord.payment_status === 'paid'
                   ? 'border-emerald-200/80 hover:shadow-md'
                   : ord.payment_status === 'failed'
-                  ? 'border-red-200/80 hover:shadow-md'
-                  : 'border-slate-200/80 hover:shadow-md'
+                  ? 'border-rose-200/80 hover:shadow-md'
+                  : 'border-[#EAE3D9] hover:shadow-md'
               }`}
             >
               <div className="space-y-2 max-w-xl">
                 <div className="flex items-center space-x-3">
-                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-xl border border-blue-200/60">
+                  <span className="text-xs font-mono font-extrabold text-[#7668D8] bg-[#7668D8]/10 px-3 py-1 rounded-xl border border-[#7668D8]/20">
                     {ord.order_number}
                   </span>
                   <span
-                    className={`text-[11px] font-bold uppercase px-3 py-1 rounded-full ${
+                    className={`text-[11px] font-extrabold uppercase px-3 py-1 rounded-full ${
                       ord.payment_status === 'paid'
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/80'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : ord.payment_status === 'failed'
-                        ? 'bg-red-50 text-red-600 border border-red-200/80'
-                        : 'bg-amber-50 text-amber-600 border border-amber-200/80'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}
                   >
                     {ord.payment_status}
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-700">
-                  Partner: <strong className="text-[#0F1E3A]">{user?.role === 'buyer' ? ord.seller_company_name || ord.seller_name : ord.buyer_company_name || ord.buyer_name}</strong>
+                <p className="text-xs text-[#5A6588] font-bold">
+                  Partner: <strong className="text-[#20284F] font-extrabold">{user?.role === 'buyer' ? ord.seller_company_name || ord.seller_name : ord.buyer_company_name || ord.buyer_name}</strong>
                 </p>
 
-                <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
+                <div className="text-xs text-[#5A6588] flex flex-wrap items-center gap-3 font-normal">
                   <span>Requirement: {ord.parsed_summary}</span>
                   <span>•</span>
                   <span>Lead Time: {ord.lead_time_days} Days</span>
@@ -121,8 +121,8 @@ export default function OrdersPage({ onOpenAudit }) {
 
               <div className="flex flex-col items-end space-y-3 shrink-0">
                 <div className="text-right">
-                  <div className="text-[11px] text-slate-400">Total Landed Amount</div>
-                  <div className="text-2xl font-bold text-[#0F1E3A] font-mono tracking-tight">
+                  <div className="text-[11px] text-[#5A6588] font-bold">Total Landed Amount</div>
+                  <div className="text-2xl font-extrabold text-[#20284F] font-mono tracking-tight">
                     ₹{ord.total_landed_cost?.toLocaleString('en-IN')}
                   </div>
                 </div>
@@ -130,9 +130,9 @@ export default function OrdersPage({ onOpenAudit }) {
                 {ord.payment_status === 'failed' && user?.role === 'buyer' && (
                   <button
                     onClick={() => handleRetryPayment(ord.id)}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1"
+                    className="px-4 py-2 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5 text-[#E88AAE]" />
                     <span>Retry Payment</span>
                   </button>
                 )}
@@ -145,3 +145,4 @@ export default function OrdersPage({ onOpenAudit }) {
     </div>
   );
 }
+

@@ -165,12 +165,12 @@ export default function ImageUploader({ value, onChange }) {
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Tabs Selector */}
-      <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold text-slate-600">
+      <div className="flex rounded-xl bg-[#FAF6F0] p-1 text-xs font-bold text-[#20284F]/70 border border-[#EAE3D9]">
         <button
           type="button"
           onClick={() => handleTabChange('upload')}
           className={`flex-1 py-1.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-            activeTab === 'upload' ? 'bg-white text-blue-600 shadow-2xs font-extrabold' : 'hover:text-slate-900'
+            activeTab === 'upload' ? 'bg-white text-[#7668D8] shadow-xs font-extrabold' : 'hover:text-[#20284F]'
           }`}
         >
           <Upload className="w-3.5 h-3.5" />
@@ -181,7 +181,7 @@ export default function ImageUploader({ value, onChange }) {
           type="button"
           onClick={() => handleTabChange('camera')}
           className={`flex-1 py-1.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-            activeTab === 'camera' ? 'bg-white text-blue-600 shadow-2xs font-extrabold' : 'hover:text-slate-900'
+            activeTab === 'camera' ? 'bg-white text-[#7668D8] shadow-xs font-extrabold' : 'hover:text-[#20284F]'
           }`}
         >
           <Camera className="w-3.5 h-3.5" />
@@ -192,7 +192,7 @@ export default function ImageUploader({ value, onChange }) {
           type="button"
           onClick={() => handleTabChange('url')}
           className={`flex-1 py-1.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-            activeTab === 'url' ? 'bg-white text-blue-600 shadow-2xs font-extrabold' : 'hover:text-slate-900'
+            activeTab === 'url' ? 'bg-white text-[#7668D8] shadow-xs font-extrabold' : 'hover:text-[#20284F]'
           }`}
         >
           <LinkIcon className="w-3.5 h-3.5" />
@@ -212,20 +212,20 @@ export default function ImageUploader({ value, onChange }) {
           />
           <div
             onClick={() => !uploading && fileInputRef.current?.click()}
-            className="border-2 border-dashed border-slate-200 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 rounded-2xl p-4 text-center cursor-pointer transition-all space-y-2 group"
+            className="border-2 border-dashed border-[#EAE3D9] hover:border-[#7668D8] bg-[#FAF6F0] hover:bg-[#EAE3D9]/30 rounded-2xl p-4 text-center cursor-pointer transition-all space-y-2 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-white text-blue-600 flex items-center justify-center mx-auto shadow-2xs group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-white text-[#7668D8] flex items-center justify-center mx-auto shadow-2xs group-hover:scale-110 transition-transform border border-[#EAE3D9]">
               {uploading ? (
-                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-[#7668D8] border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <Upload className="w-5 h-5" />
               )}
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-800">
+              <p className="text-xs font-bold text-[#20284F]">
                 {uploading ? 'Uploading image to server...' : 'Click to select image file from computer/device'}
               </p>
-              <p className="text-[10px] text-slate-400">Supports PNG, JPG, JPEG, WEBP</p>
+              <p className="text-[10px] text-[#20284F]/50">Supports PNG, JPG, JPEG, WEBP</p>
             </div>
           </div>
         </div>
@@ -235,19 +235,19 @@ export default function ImageUploader({ value, onChange }) {
       {activeTab === 'camera' && (
         <div className="space-y-3">
           {cameraError ? (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 text-center space-y-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 text-center space-y-2">
               <p>{cameraError}</p>
               <button
                 type="button"
                 onClick={startCamera}
-                className="px-3 py-1 bg-red-600 text-white rounded-lg text-[11px] font-bold"
+                className="px-3 py-1 bg-rose-600 text-white rounded-lg text-[11px] font-bold"
               >
                 Try Again
               </button>
             </div>
           ) : capturedPhoto ? (
             <div className="space-y-2 text-center">
-              <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-slate-200 bg-black">
+              <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-[#EAE3D9] bg-black">
                 <img src={capturedPhoto} alt="Captured product" className="w-full h-full object-cover" />
                 <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center space-x-1">
                   <Check className="w-3 h-3" />
@@ -257,7 +257,7 @@ export default function ImageUploader({ value, onChange }) {
               <button
                 type="button"
                 onClick={retakePhoto}
-                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold inline-flex items-center space-x-1"
+                className="px-4 py-1.5 bg-[#FAF6F0] hover:bg-[#EAE3D9]/50 text-[#20284F] border border-[#EAE3D9] rounded-xl text-xs font-bold inline-flex items-center space-x-1"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Retake Photo</span>
@@ -265,7 +265,7 @@ export default function ImageUploader({ value, onChange }) {
             </div>
           ) : (
             <div className="space-y-2 text-center">
-              <div className="relative h-48 w-full rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 flex items-center justify-center">
+              <div className="relative h-48 w-full rounded-2xl overflow-hidden border border-[#EAE3D9] bg-[#20284F] flex items-center justify-center">
                 <video
                   ref={videoRef}
                   playsInline
@@ -273,12 +273,12 @@ export default function ImageUploader({ value, onChange }) {
                   className="w-full h-full object-cover"
                 />
                 {!cameraActive && (
-                  <div className="absolute inset-0 bg-slate-900/80 text-white flex flex-col items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-[#20284F]/80 text-white flex flex-col items-center justify-center p-4">
                     <p className="text-xs font-bold mb-2">Opening Camera Stream...</p>
                     <button
                       type="button"
                       onClick={startCamera}
-                      className="px-4 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-xl"
+                      className="px-4 py-1.5 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white font-bold text-xs rounded-xl"
                     >
                       Start Camera
                     </button>
@@ -290,7 +290,7 @@ export default function ImageUploader({ value, onChange }) {
                 <button
                   type="button"
                   onClick={takePhoto}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-500/20 inline-flex items-center space-x-1.5"
+                  className="px-6 py-2 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:opacity-95 text-white font-extrabold text-xs rounded-xl shadow-md inline-flex items-center space-x-1.5"
                 >
                   <Camera className="w-4 h-4" />
                   <span>Snap Product Photo</span>
@@ -309,16 +309,16 @@ export default function ImageUploader({ value, onChange }) {
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder="https://images.unsplash.com/... or image link"
-            className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
+            className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3.5 py-2 text-xs text-[#20284F] focus:outline-none focus:border-[#7668D8]"
           />
-          <div className="text-[10px] text-slate-400 font-medium">Quick Presets:</div>
+          <div className="text-[10px] text-[#20284F]/50 font-medium">Quick Presets:</div>
           <div className="flex flex-wrap gap-1.5">
             {sampleImagePresets.map((preset) => (
               <button
                 type="button"
                 key={preset.label}
                 onClick={() => onChange(preset.url)}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-[10px] font-bold text-slate-700 shadow-2xs transition-colors"
+                className="px-2.5 py-1 bg-[#FAF6F0] hover:bg-[#EAE3D9]/50 border border-[#EAE3D9] rounded-lg text-[10px] font-bold text-[#20284F] shadow-2xs transition-colors"
               >
                 + {preset.label}
               </button>
@@ -329,21 +329,21 @@ export default function ImageUploader({ value, onChange }) {
 
       {/* Image Preview Box (If image is selected) */}
       {value && (
-        <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+        <div className="p-2.5 bg-[#FAF6F0] border border-[#EAE3D9] rounded-2xl flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 overflow-hidden">
             <img
               src={resolveImageUrl(value)}
               alt="Selected Preview"
-              className="w-12 h-12 object-cover rounded-xl border border-slate-200 shrink-0"
+              className="w-12 h-12 object-cover rounded-xl border border-[#EAE3D9] shrink-0"
               onError={(e) => {
                 e.target.src = 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop&q=80';
               }}
             />
             <div className="truncate">
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 inline-block">
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 inline-block">
                 ✓ Image Saved
               </span>
-              <p className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
+              <p className="text-[10px] text-[#20284F]/60 truncate mt-0.5 font-mono">
                 {value}
               </p>
             </div>
@@ -351,7 +351,7 @@ export default function ImageUploader({ value, onChange }) {
           <button
             type="button"
             onClick={() => onChange('')}
-            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+            className="p-1 text-[#20284F]/40 hover:text-rose-600 transition-colors"
             title="Remove Image"
           >
             <X className="w-4 h-4" />

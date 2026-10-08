@@ -39,8 +39,8 @@ if (!fs.existsSync(uploadsPath2)) fs.mkdirSync(uploadsPath2, { recursive: true }
 app.use('/uploads', express.static(uploadsPath1));
 app.use('/uploads', express.static(uploadsPath2));
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoint (Available at both /health and /api/health for Render/Vercel)
+const healthHandler = (req, res) => {
   const isConnected = mongoose.connection && mongoose.connection.readyState === 1;
   res.json({
     status: isConnected ? 'ok' : 'error',
@@ -50,16 +50,34 @@ app.get('/api/health', (req, res) => {
     version: '3.0.0',
     time: new Date().toISOString()
   });
-});
+};
 
-// Routes
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
+
+// Route Registration (Mounted with AND without /api prefix for seamless Render/Vercel deployment)
+app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
+
+app.use('/seller', sellerRoutes);
 app.use('/api/seller', sellerRoutes);
+
+app.use('/buyer', buyerRoutes);
 app.use('/api/buyer', buyerRoutes);
+
+app.use('/audit', auditRoutes);
 app.use('/api/audit', auditRoutes);
+
+app.use('/ai', aiRoutes);
 app.use('/api/ai', aiRoutes);
+
+app.use('/', uploadRoutes);
 app.use('/api', uploadRoutes);
+
+app.use('/', searchRoutes);
 app.use('/api', searchRoutes);
+
+app.use('/', orderRoutes);
 app.use('/api', orderRoutes);
 
 // Catch unhandled /api routes with a clean JSON 404 response
@@ -95,7 +113,7 @@ async function startServer() {
       console.log(`   JWT_SECRET configured: ${Boolean(JWT_SECRET)}`);
       console.log(`   Gemini configured: ${Boolean(process.env.GEMINI_API_KEY)}`);
       console.log(`   Razorpay configured: ${Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)}`);
-      console.log(`   Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`   Health Check: http://localhost:${PORT}/health & /api/health`);
       console.log(`===================================================`);
     });
   } catch (err) {

@@ -26,6 +26,32 @@ const negotiationRoundSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const discountComponentSchema = new mongoose.Schema(
+  {
+    applied: { type: Boolean, default: false },
+    percent: { type: Number, default: 0 },
+    amount: { type: Number, default: 0 },
+    reason: { type: String, default: '' },
+    moq: { type: Number },
+    qtyAboveMoq: { type: Number },
+    extraDays: { type: Number }
+  },
+  { _id: false }
+);
+
+const discountBreakdownSchema = new mongoose.Schema(
+  {
+    totalRequestedUnits: { type: Number, default: 1 },
+    listPriceTotal: { type: Number, required: true },
+    bulkDiscount: discountComponentSchema,
+    leadTimeDiscount: discountComponentSchema,
+    advancePayDiscount: discountComponentSchema,
+    totalDiscountAmount: { type: Number, required: true },
+    finalNegotiatedTotal: { type: Number, required: true }
+  },
+  { _id: false }
+);
+
 const sellerOfferSchema = new mongoose.Schema(
   {
     requirementId: {
@@ -66,6 +92,7 @@ const sellerOfferSchema = new mongoose.Schema(
       type: String
     },
     negotiationRounds: [negotiationRoundSchema],
+    discountBreakdown: discountBreakdownSchema,
     isBestDeal: {
       type: Boolean,
       default: false

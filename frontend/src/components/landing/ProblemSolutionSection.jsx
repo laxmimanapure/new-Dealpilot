@@ -120,11 +120,11 @@ export default function ProblemSolutionSection() {
               const StepIcon = step.icon;
               return (
                 <React.Fragment key={idx}>
-                  <div className="flex-1 w-full bg-[#FBF8F3] p-4.5 rounded-2xl border border-[#EAE3D9] flex flex-col items-center justify-center space-y-2.5 group hover:border-[#7668D8] transition-all shadow-2xs">
+                  <div className="flex-1 w-full bg-[#FBF8F3] px-4 py-6 rounded-2xl border border-[#EAE3D9] flex flex-col items-center justify-center space-y-3 group hover:border-[#7668D8] transition-all shadow-2xs">
                     <div className="w-10 h-10 rounded-xl bg-[#7668D8]/10 text-[#7668D8] group-hover:bg-[#7668D8] group-hover:text-white flex items-center justify-center transition-all">
                       <StepIcon className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-extrabold text-[#20284F] text-center">{step.label}</span>
+                    <span className="text-xs font-extrabold text-[#20284F] text-center leading-normal">{step.label}</span>
                   </div>
 
                   {idx < flowSteps.length - 1 && (

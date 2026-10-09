@@ -9,6 +9,20 @@ const orderItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const deliveryAddressSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, required: true, trim: true },
+    phoneNumber: { type: String, required: true, trim: true },
+    addressLine1: { type: String, required: true, trim: true },
+    addressLine2: { type: String, default: '', trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    pinCode: { type: String, required: true, trim: true },
+    deliveryInstructions: { type: String, default: '', trim: true }
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     orderNumber: {
@@ -47,6 +61,18 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    negotiatedBaseAmount: {
+      type: Number,
+      required: true
+    },
+    onlineDiscountPercent: {
+      type: Number,
+      default: 0
+    },
+    onlineDiscountAmount: {
+      type: Number,
+      default: 0
+    },
     finalAmount: {
       type: Number,
       required: true
@@ -55,6 +81,12 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 7
     },
+    paymentMethod: {
+      type: String,
+      enum: ['COD', 'ONLINE'],
+      default: 'ONLINE'
+    },
+    deliveryAddress: deliveryAddressSchema,
     paymentStatus: {
       type: String,
       enum: ['PENDING_PAYMENT', 'PAID', 'FAILED'],

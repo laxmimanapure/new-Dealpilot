@@ -19,7 +19,18 @@ router.post('/analyze-procurement', async (req, res) => {
     }
 
     // 1. Natural Language Requirement Extraction via LLM / AI Service
+    console.log(`\n===================================================`);
+    console.log(`📥 [API DIAGNOSTIC] POST /api/ai/analyze-procurement endpoint called`);
+    console.log(`   Prompt Text: "${textToAnalyze.trim()}"`);
+
     const analysis = await parseBuyerPrompt(textToAnalyze.trim());
+
+    console.log(`   AI Engine Used: ${analysis.ai_engine}`);
+    console.log(`   Is AI Parsed: ${analysis.is_ai_parsed}`);
+    console.log(`   Extracted Items:`, JSON.stringify(analysis.items));
+    console.log(`   Extracted Budget: ₹${analysis.total_budget}`);
+    console.log(`   Extracted Deadline: ${analysis.deadline_days} days`);
+    console.log(`===================================================\n`);
 
     // 2. Deterministic Backend Budget Check & Feasibility Validation
     const reqItems = analysis.items || [];
@@ -48,6 +59,7 @@ router.post('/analyze-procurement', async (req, res) => {
       stock: p.stock,
       unit: p.unit,
       sku: p.sku,
+      moq: p.moq || 1,
       supplier_name: p.sellerId?.companyName || p.sellerId?.name || 'Verified Supplier',
       supplier_id: p.sellerId?._id
     }));

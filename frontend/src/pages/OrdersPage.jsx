@@ -91,7 +91,7 @@ export default function OrdersPage({ onOpenAudit }) {
               }`}
             >
               <div className="space-y-2 max-w-xl">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 flex-wrap gap-y-2">
                   <span className="text-xs font-mono font-extrabold text-[#7668D8] bg-[#7668D8]/10 px-3 py-1 rounded-xl border border-[#7668D8]/20">
                     {ord.order_number}
                   </span>
@@ -106,6 +106,9 @@ export default function OrdersPage({ onOpenAudit }) {
                   >
                     {ord.payment_status}
                   </span>
+                  <span className="text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-[#20284F]/10 text-[#20284F] border border-[#20284F]/20">
+                    Payment: {ord.payment_method === 'ONLINE' ? 'Razorpay (Online)' : 'COD'}
+                  </span>
                 </div>
 
                 <p className="text-xs text-[#5A6588] font-bold">
@@ -117,11 +120,38 @@ export default function OrdersPage({ onOpenAudit }) {
                   <span>•</span>
                   <span>Lead Time: {ord.lead_time_days} Days</span>
                 </div>
+
+                {/* Delivery Address Display */}
+                {ord.delivery_address && (
+                  <div className="mt-3 p-3.5 bg-[#FBF8F3] border border-[#EAE3D9] rounded-2xl text-xs space-y-1 text-[#20284F]">
+                    <div className="font-extrabold text-[#7668D8] flex items-center space-x-1 mb-1">
+                      <span>📍 Delivery Address</span>
+                    </div>
+                    <div>
+                      <strong>{ord.delivery_address.fullName}</strong> • {ord.delivery_address.phoneNumber}
+                    </div>
+                    <div className="text-[#5A6588]">
+                      {ord.delivery_address.addressLine1}
+                      {ord.delivery_address.addressLine2 ? `, ${ord.delivery_address.addressLine2}` : ''}, {ord.delivery_address.city}, {ord.delivery_address.state} - {ord.delivery_address.pincode}
+                    </div>
+                    {ord.delivery_address.deliveryInstructions && (
+                      <div className="text-[11px] text-[#7668D8] italic">
+                        Note: {ord.delivery_address.deliveryInstructions}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col items-end space-y-3 shrink-0">
-                <div className="text-right">
-                  <div className="text-[11px] text-[#5A6588] font-bold">Total Landed Amount</div>
+                <div className="text-right space-y-1">
+                  {ord.online_discount_amount > 0 && (
+                    <div className="text-[11px] text-[#5A6588] font-medium space-y-0.5">
+                      <div>Negotiated Base: <span className="font-mono font-bold">₹{ord.negotiated_base_amount?.toLocaleString('en-IN')}</span></div>
+                      <div className="text-emerald-700 font-bold">Online Discount ({ord.online_discount_percent}%): <span className="font-mono">-₹{ord.online_discount_amount?.toLocaleString('en-IN')}</span></div>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-[#5A6588] font-bold">Final Payable Amount</div>
                   <div className="text-2xl font-extrabold text-[#20284F] font-mono tracking-tight">
                     ₹{ord.total_landed_cost?.toLocaleString('en-IN')}
                   </div>

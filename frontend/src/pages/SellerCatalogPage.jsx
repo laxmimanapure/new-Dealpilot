@@ -9,7 +9,6 @@ export default function SellerCatalogPage() {
   const [rules, setRules] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedProductRule, setSelectedProductRule] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -24,6 +23,21 @@ export default function SellerCatalogPage() {
     moq: 5,
     standard_lead_time_days: 3
   });
+
+  const [selectedProductRule, setSelectedProductRule] = useState(null);
+  const [ruleForm, setRuleForm] = useState({
+    maximumDiscountPercent: 15.0,
+    maximumDiscountAmount: 20000.0,
+    marginFloorPercent: 8.0,
+    earlyPaymentDiscount: 2.0,
+    leadTimeExtraDiscount: 1.0,
+    standardLeadTimeDays: 3,
+    leadTimeExtensionDays: 7,
+    maxRounds: 3,
+    bulkDiscountRules: []
+  });
+  const [ruleError, setRuleError] = useState('');
+  const [isSavingRule, setIsSavingRule] = useState(false);
 
   useEffect(() => {
     fetchCatalogData();
@@ -76,6 +90,72 @@ export default function SellerCatalogPage() {
       fetchCatalogData();
     } catch (err) {
       setError('Failed to delete product');
+    }
+  };
+
+  const handleOpenPolicyModal = (prod) => {
+    setSelectedProductRule(prod);
+    setRuleError('');
+    const r = prod.rules || {};
+    setRuleForm({
+      maximumDiscountPercent: r.maximumDiscountPercent ?? 15.0,
+      maximumDiscountAmount: r.maximumDiscountAmount ?? 20000.0,
+      marginFloorPercent: r.marginFloorPercent ?? 8.0,
+      earlyPaymentDiscount: r.earlyPaymentDiscount ?? 2.0,
+      leadTimeExtraDiscount: r.leadTimeExtraDiscount ?? 1.0,
+      standardLeadTimeDays: prod.standard_lead_time_days || prod.standardLeadTimeDays || 3,
+      leadTimeExtensionDays: r.leadTimeExtensionDays ?? 7,
+      maxRounds: r.maxRounds ?? 3,
+      bulkDiscountRules: r.bulkDiscountRules ? JSON.parse(JSON.stringify(r.bulkDiscountRules)) : []
+    });
+  };
+
+  const handleAddSlab = () => {
+    setRuleForm(prev => {
+      const existing = prev.bulkDiscountRules;
+      const lastMin = existing.length > 0 ? (existing[existing.length - 1].maxQuantity ? existing[existing.length - 1].maxQuantity + 1 : existing[existing.length - 1].minQuantity + 20) : 25;
+      return {
+        ...prev,
+        bulkDiscountRules: [
+          ...existing,
+          { minQuantity: lastMin, maxQuantity: lastMin + 24, discountPercent: 5.0 }
+        ]
+      };
+    });
+  };
+
+  const handleRemoveSlab = (idx) => {
+    setRuleForm(prev => ({
+      ...prev,
+      bulkDiscountRules: prev.bulkDiscountRules.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const handleSlabChange = (idx, field, val) => {
+    setRuleForm(prev => {
+      const updated = [...prev.bulkDiscountRules];
+      const parsedVal = field === 'discountPercent' ? (parseFloat(val) || 0) : (val === '' ? null : parseInt(val, 10));
+      updated[idx] = { ...updated[idx], [field]: parsedVal };
+      return { ...prev, bulkDiscountRules: updated };
+    });
+  };
+
+  const handleSavePolicyRules = async () => {
+    if (!selectedProductRule) return;
+    setRuleError('');
+    setIsSavingRule(true);
+
+    try {
+      const productId = selectedProductRule.id || selectedProductRule._id;
+      await api.put(`/seller/rules/${productId}`, ruleForm);
+      setSaveSuccess(`Policy rules updated successfully for ${selectedProductRule.name}!`);
+      setTimeout(() => setSaveSuccess(''), 3500);
+      setSelectedProductRule(null);
+      fetchCatalogData();
+    } catch (err) {
+      setRuleError(err.response?.data?.error || err.message || 'Failed to update policy rules');
+    } finally {
+      setIsSavingRule(false);
     }
   };
 
@@ -175,11 +255,11 @@ export default function SellerCatalogPage() {
                   <div className="grid grid-cols-2 gap-2 p-3 bg-[#FAF6F0] rounded-xl text-xs border border-[#EAE3D9]/60">
                     <div>
                       <span className="text-[#20284F]/60 font-medium block">List Price</span>
-                      <strong className="text-[#20284F] font-mono text-sm">₹{prod.list_price || prod.price}</strong>
+                      <strong className="text-[#20284F] font-mono text-sm">₹{(prod.list_price || prod.price)?.toLocaleString('en-IN')}</strong>
                     </div>
                     <div>
                       <span className="text-[#20284F]/60 font-medium block">Cost Price</span>
-                      <strong className="text-[#20284F]/80 font-mono">₹{prod.cost_price || prod.costPrice || Math.round((prod.list_price || prod.price) * 0.7)}</strong>
+                      <strong className="text-[#20284F]/80 font-mono">₹{(prod.cost_price || prod.costPrice || Math.round((prod.list_price || prod.price) * 0.7))?.toLocaleString('en-IN')}</strong>
                     </div>
                     <div>
                       <span className="text-[#20284F]/60 font-medium block">Stock</span>
@@ -196,7 +276,7 @@ export default function SellerCatalogPage() {
               <div className="p-5 pt-0 border-t border-[#EAE3D9]/60 flex items-center justify-between text-xs">
                 <span className="text-[#20284F]/60">MOQ: <strong className="text-[#20284F]">{prod.moq || 5} units</strong></span>
                 <button
-                  onClick={() => setSelectedProductRule(prod)}
+                  onClick={() => handleOpenPolicyModal(prod)}
                   className="text-[#7668D8] hover:text-[#352F6E] font-bold flex items-center space-x-1"
                 >
                   <Settings className="w-3.5 h-3.5" />
@@ -339,12 +419,12 @@ export default function SellerCatalogPage() {
 
       {/* Product Policy Rules Drawer Modal */}
       {selectedProductRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#20284F]/60 backdrop-blur-xs">
-          <div className="bg-white border border-[#EAE3D9] rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#20284F]/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white border border-[#EAE3D9] rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-[#EAE3D9]/60 pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#20284F]">Policy Rules: {selectedProductRule.name}</h3>
-                <p className="text-xs text-[#20284F]/60">Configure AI negotiation boundaries for this item</p>
+                <p className="text-xs text-[#20284F]/60">Configure seller-defined negotiation bounds & bulk discount slabs</p>
               </div>
               <button
                 onClick={() => setSelectedProductRule(null)}
@@ -354,61 +434,192 @@ export default function SellerCatalogPage() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#20284F] mb-1">Max Total Discount (%)</label>
-                  <input
-                    type="number"
-                    defaultValue={12.5}
-                    className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[#20284F] mb-1">Margin Floor (%)</label>
-                  <input
-                    type="number"
-                    defaultValue={10.0}
-                    className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-amber-700 font-bold"
-                  />
+            {ruleError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{ruleError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4 text-xs">
+              
+              {/* Caps & Floor Section */}
+              <div className="space-y-2">
+                <div className="font-bold text-[#7668D8] text-[11px] uppercase tracking-wider">Discount Caps & Margins</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Max Total Discount (%)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={ruleForm.maximumDiscountPercent}
+                      onChange={(e) => setRuleForm({ ...ruleForm, maximumDiscountPercent: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] font-bold focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Max Discount Amount (₹)</label>
+                    <input
+                      type="number"
+                      value={ruleForm.maximumDiscountAmount}
+                      onChange={(e) => setRuleForm({ ...ruleForm, maximumDiscountAmount: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] font-mono font-bold focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Margin Floor (%)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={ruleForm.marginFloorPercent}
+                      onChange={(e) => setRuleForm({ ...ruleForm, marginFloorPercent: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-amber-700 font-bold focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Max Negotiation Rounds</label>
+                    <input
+                      type="number"
+                      value={ruleForm.maxRounds}
+                      onChange={(e) => setRuleForm({ ...ruleForm, maxRounds: parseInt(e.target.value, 10) || 3 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#20284F] mb-1">Advance Pay Discount (%)</label>
-                  <input
-                    type="number"
-                    defaultValue={2.0}
-                    className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[#20284F] mb-1">Lead Time Discount (%)</label>
-                  <input
-                    type="number"
-                    defaultValue={1.0}
-                    className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F]"
-                  />
+              {/* Payment & Delivery Incentives Section */}
+              <div className="space-y-2 pt-2 border-t border-[#EAE3D9]/60">
+                <div className="font-bold text-[#7668D8] text-[11px] uppercase tracking-wider">Payment & Delivery Policy Incentives</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Advance Pay Discount (%)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={ruleForm.earlyPaymentDiscount}
+                      onChange={(e) => setRuleForm({ ...ruleForm, earlyPaymentDiscount: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Flexible Delivery Discount (%)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={ruleForm.leadTimeExtraDiscount}
+                      onChange={(e) => setRuleForm({ ...ruleForm, leadTimeExtraDiscount: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Standard Lead Time (days)</label>
+                    <input
+                      type="number"
+                      value={ruleForm.standardLeadTimeDays}
+                      onChange={(e) => setRuleForm({ ...ruleForm, standardLeadTimeDays: parseInt(e.target.value, 10) || 1 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#20284F] mb-1">Extension Required (days)</label>
+                    <input
+                      type="number"
+                      value={ruleForm.leadTimeExtensionDays}
+                      onChange={(e) => setRuleForm({ ...ruleForm, leadTimeExtensionDays: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full bg-white border border-[#EAE3D9] rounded-xl px-3 py-2 text-[#20284F] focus:outline-none focus:border-[#7668D8]"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Bulk Discount Slabs Section */}
+              <div className="space-y-2 pt-2 border-t border-[#EAE3D9]/60">
+                <div className="flex justify-between items-center">
+                  <div className="font-bold text-[#7668D8] text-[11px] uppercase tracking-wider">Configured Bulk Discount Slabs</div>
+                  <button
+                    type="button"
+                    onClick={handleAddSlab}
+                    className="px-2.5 py-1 bg-[#7668D8]/10 hover:bg-[#7668D8]/20 text-[#7668D8] rounded-lg font-extrabold text-[11px] flex items-center space-x-1 transition-all"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Slab</span>
+                  </button>
+                </div>
+
+                {ruleForm.bulkDiscountRules.length === 0 ? (
+                  <p className="text-[11px] text-[#20284F]/60 italic bg-[#FAF6F0] p-3 rounded-xl border border-[#EAE3D9]">
+                    No bulk discount slabs configured. Buyer orders will not receive bulk discounts unless a slab is added.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {ruleForm.bulkDiscountRules.map((slab, sIdx) => (
+                      <div key={sIdx} className="flex items-center space-x-2 bg-[#FAF6F0] p-2.5 rounded-xl border border-[#EAE3D9]">
+                        <div className="flex-1 grid grid-cols-3 gap-2 text-[11px]">
+                          <div>
+                            <span className="text-[10px] text-[#20284F]/60 block font-semibold">Min Qty</span>
+                            <input
+                              type="number"
+                              value={slab.minQuantity}
+                              onChange={(e) => handleSlabChange(sIdx, 'minQuantity', e.target.value)}
+                              className="w-full bg-white border border-[#EAE3D9] rounded-lg px-2 py-1 font-bold text-[#20284F]"
+                              placeholder="25"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#20284F]/60 block font-semibold">Max Qty (Opt)</span>
+                            <input
+                              type="number"
+                              value={slab.maxQuantity ?? ''}
+                              onChange={(e) => handleSlabChange(sIdx, 'maxQuantity', e.target.value)}
+                              className="w-full bg-white border border-[#EAE3D9] rounded-lg px-2 py-1 text-[#20284F]"
+                              placeholder="49"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-[#20284F]/60 block font-semibold">Discount (%)</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={slab.discountPercent}
+                              onChange={(e) => handleSlabChange(sIdx, 'discountPercent', e.target.value)}
+                              className="w-full bg-white border border-[#EAE3D9] rounded-lg px-2 py-1 font-bold text-emerald-700"
+                              placeholder="5.0"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlab(sIdx)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Remove Slab"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
 
-            <div className="flex justify-end space-x-3 pt-3">
+            <div className="flex justify-end space-x-3 pt-3 border-t border-[#EAE3D9]/60">
               <button
+                type="button"
                 onClick={() => setSelectedProductRule(null)}
                 className="px-4 py-2 bg-[#FAF6F0] text-[#20284F] border border-[#EAE3D9] hover:bg-[#EAE3D9]/50 rounded-xl font-bold"
               >
                 Close
               </button>
               <button
-                onClick={() => {
-                  alert('Policy rules updated for product!');
-                  setSelectedProductRule(null);
-                }}
-                className="px-5 py-2 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white rounded-xl font-bold shadow-md hover:opacity-95"
+                type="button"
+                onClick={handleSavePolicyRules}
+                disabled={isSavingRule}
+                className="px-5 py-2 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white rounded-xl font-bold shadow-md hover:opacity-95 disabled:opacity-50 flex items-center space-x-1.5"
               >
-                Save Rules
+                <Save className="w-4 h-4" />
+                <span>{isSavingRule ? 'Saving Policies...' : 'Save Product Rules'}</span>
               </button>
             </div>
           </div>

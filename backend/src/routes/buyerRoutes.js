@@ -129,7 +129,8 @@ router.get('/requests', async (req, res) => {
 router.post('/requests', async (req, res) => {
   try {
     const buyerId = req.user.id;
-    const { promptText, raw_prompt, total_budget, deadline_days, items: providedItems } = req.body;
+    const { promptText, raw_prompt, total_budget, deadline_days, isAdvancePayment, is_advance_payment, items: providedItems } = req.body;
+    const isAdvPay = Boolean(isAdvancePayment || is_advance_payment);
 
     const textToParse = promptText || raw_prompt;
     if (!textToParse && (!providedItems || providedItems.length === 0)) {
@@ -139,14 +140,47 @@ router.post('/requests', async (req, res) => {
     let parsedResult = { items: [], total_budget: total_budget || 100000, deadline_days: deadline_days || 14 };
 
     if (textToParse) {
+      console.log(`\n===================================================`);
+      console.log(`📥 [API DIAGNOSTIC] POST /api/buyer/requests endpoint called`);
+      console.log(`   Prompt Text: "${textToParse}"`);
+
       parsedResult = await parseBuyerPrompt(textToParse);
+
+      console.log(`   AI Engine Used: ${parsedResult.ai_engine}`);
+      console.log(`   Is AI Parsed: ${parsedResult.is_ai_parsed}`);
+      console.log(`   Extracted Items:`, JSON.stringify(parsedResult.items));
+      console.log(`   Extracted Budget: ₹${parsedResult.total_budget}`);
+      console.log(`   Extracted Deadline: ${parsedResult.deadline_days} days`);
+      console.log(`===================================================\n`);
+    }
+
+    // Strict backend validation of provided items and quantities
+    if (providedItems && Array.isArray(providedItems) && providedItems.length > 0) {
+      for (const i of providedItems) {
+        const rawQty = i.quantity;
+        const numQty = Number(rawQty);
+        const nameStr = String(i.item_name || i.name || '').trim();
+
+        if (!nameStr) {
+          return res.status(400).json({ error: 'Product name cannot be empty.' });
+        }
+        if (rawQty === undefined || rawQty === null || rawQty === '' || isNaN(numQty)) {
+          return res.status(400).json({ error: `Quantity for item '${nameStr}' must be a valid number.` });
+        }
+        if (numQty <= 0) {
+          return res.status(400).json({ error: `Quantity for item '${nameStr}' must be a positive integer greater than 0.` });
+        }
+        if (!Number.isInteger(numQty)) {
+          return res.status(400).json({ error: `Quantity for item '${nameStr}' must be a whole integer (no decimals).` });
+        }
+      }
     }
 
     let rawItems = (providedItems && providedItems.length > 0) ? providedItems : parsedResult.items;
     const finalItems = (rawItems || [])
       .map(i => ({
         item_name: String(i.item_name || i.name || 'Item').trim(),
-        quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+        quantity: parseInt(i.quantity, 10),
         estimated_budget: i.estimated_budget ? Number(i.estimated_budget) : null
       }))
       .filter(i => i.item_name.length > 0 && i.quantity >= 1);
@@ -165,6 +199,7 @@ router.post('/requests', async (req, res) => {
       items: finalItems,
       targetBudget: finalBudget,
       deadlineDays: finalDeadline,
+      isAdvancePayment: isAdvPay,
       status: 'SUBMITTED'
     });
 
@@ -209,40 +244,84 @@ router.get('/requests/:id/plans', async (req, res) => {
     const buyerId = req.user.id;
     const requirementId = req.params.id;
 
-    const requirement = await ProcurementRequirement.findOne({ _id: requirementId, buyerId }).lean();
-    if (!requirement) {
+    const reqDoc = await ProcurementRequirement.findOne({ _id: requirementId, buyerId });
+    if (!reqDoc) {
       return res.status(404).json({ error: 'Requirement not found or unauthorized' });
     }
 
-    let offers = await SellerOffer.find({ requirementId })
+    // Always re-run requirement matching & negotiation to refresh volume and delivery discounts
+    await processRequirementMatchingAndNegotiation(reqDoc);
+
+    const offers = await SellerOffer.find({ requirementId })
       .populate('sellerId', 'name companyName email')
       .lean();
 
-    if (offers.length === 0) {
-      const reqDoc = await ProcurementRequirement.findById(requirementId);
-      if (reqDoc) {
-        await processRequirementMatchingAndNegotiation(reqDoc);
-        offers = await SellerOffer.find({ requirementId })
-          .populate('sellerId', 'name companyName email')
-          .lean();
-      }
-    }
+    const formattedPlans = offers.map(o => {
+      const discountRatio = o.originalAmount > 0 ? (o.negotiatedAmount / o.originalAmount) : 1;
+      const formattedItems = (o.items || []).map(i => {
+        const qty = i.quantity || 1;
+        const unitList = i.unitListPrice || (qty > 0 ? Math.round(((i.totalListPrice || 0) / qty) * 100) / 100 : 0);
+        const totalList = i.totalListPrice || (Math.round((unitList * qty) * 100) / 100);
+        const unitNegotiated = Math.round((unitList * discountRatio) * 100) / 100;
+        const totalNegotiated = Math.round((totalList * discountRatio) * 100) / 100;
+        return {
+          productId: i.productId,
+          name: i.name,
+          quantity: qty,
+          unit_list_price: unitList,
+          unit_negotiated_price: unitNegotiated,
+          total_list_price: totalList,
+          total_negotiated_price: totalNegotiated
+        };
+      });
 
-    const formattedPlans = offers.map(o => ({
-      offer_id: o._id,
-      seller_id: o.sellerId?._id,
-      seller_name: o.sellerId?.companyName || o.sellerId?.name || 'Seller',
-      seller_email: o.sellerId?.email,
-      items: o.items,
-      original_amount: o.originalAmount,
-      negotiated_amount: o.negotiatedAmount,
-      savings: o.savings,
-      lead_time_days: o.leadTimeDays,
-      status: o.status,
-      is_best_deal: Boolean(o.isBestDeal),
-      why_this_deal: o.whyThisDeal || [],
-      rounds: o.negotiationRounds || []
-    }));
+      const totalRequestedUnits = formattedItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
+      const bd = o.discountBreakdown || {};
+
+      const discountBreakdownFormatted = {
+        total_requested_units: bd.totalRequestedUnits || bd.total_requested_units || totalRequestedUnits,
+        list_price_total: bd.listPriceTotal || bd.list_price_total || o.originalAmount,
+        bulk_discount: {
+          applied: Boolean(bd.bulkDiscount?.applied ?? bd.bulk_discount?.applied ?? false),
+          percent: bd.bulkDiscount?.percent ?? bd.bulk_discount?.percent ?? 0,
+          amount: bd.bulkDiscount?.amount ?? bd.bulk_discount?.amount ?? 0,
+          explanation: bd.bulkDiscount?.explanation || bd.bulkDiscount?.reason || bd.bulk_discount?.explanation || bd.bulk_discount?.reason || 'No bulk discount applied because no qualifying bulk discount rule is configured.'
+        },
+        lead_time_discount: {
+          applied: Boolean(bd.leadTimeDiscount?.applied ?? bd.lead_time_discount?.applied ?? false),
+          percent: bd.leadTimeDiscount?.percent ?? bd.lead_time_discount?.percent ?? 0,
+          amount: bd.leadTimeDiscount?.amount ?? bd.lead_time_discount?.amount ?? 0,
+          explanation: bd.leadTimeDiscount?.explanation || bd.leadTimeDiscount?.reason || bd.lead_time_discount?.explanation || bd.lead_time_discount?.reason || 'No flexible delivery discount applied.'
+        },
+        advance_pay_discount: {
+          applied: Boolean(bd.advancePayDiscount?.applied ?? bd.advance_pay_discount?.applied ?? false),
+          percent: bd.advancePayDiscount?.percent ?? bd.advance_pay_discount?.percent ?? 0,
+          amount: bd.advancePayDiscount?.amount ?? bd.advance_pay_discount?.amount ?? 0,
+          explanation: bd.advancePayDiscount?.explanation || bd.advancePayDiscount?.reason || bd.advance_pay_discount?.explanation || bd.advance_pay_discount?.reason || 'No advance payment discount applied.'
+        },
+        total_discount_amount: bd.totalDiscountAmount ?? bd.total_discount_amount ?? (o.savings || 0),
+        final_negotiated_total: bd.finalNegotiatedTotal ?? bd.final_negotiated_total ?? o.negotiatedAmount
+      };
+
+      return {
+        offer_id: o._id,
+        seller_id: o.sellerId?._id,
+        seller_name: o.sellerId?.companyName || o.sellerId?.name || 'Seller',
+        seller_email: o.sellerId?.email,
+        items: formattedItems,
+        total_requested_units: totalRequestedUnits,
+        original_amount: o.originalAmount,
+        negotiated_amount: o.negotiatedAmount,
+        savings: o.savings,
+        lead_time_days: o.leadTimeDays,
+        status: o.status,
+        rejection_reason: o.rejectionReason,
+        is_best_deal: Boolean(o.isBestDeal),
+        why_this_deal: o.whyThisDeal || [],
+        rounds: o.negotiationRounds || [],
+        discount_breakdown: discountBreakdownFormatted
+      };
+    });
 
     res.json({
       requirement: {

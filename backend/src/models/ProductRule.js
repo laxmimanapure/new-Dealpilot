@@ -60,6 +60,10 @@ const productRuleSchema = new mongoose.Schema(
       type: Number,
       default: 8.0
     },
+    maxRounds: {
+      type: Number,
+      default: 3
+    },
     negotiationEnabled: {
       type: Boolean,
       default: true

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, User, Store, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Sparkles, User, Store, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function AiNegotiationSection() {
@@ -19,17 +19,17 @@ export default function AiNegotiationSection() {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto space-y-3"
         >
-          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-[#E88AAE]/20 border border-[#E88AAE]/30 text-xs font-extrabold text-[#E88AAE] uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-[#E88AAE]" />
-            <span>Margin protected ✓</span>
-          </div>
-
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.12]">
             Your rules.{' '}
             <span className="bg-gradient-to-r from-[#7668D8] via-[#E88AAE] to-pink-400 bg-clip-text text-transparent">
               Our negotiation.
             </span>
           </h2>
+
+          <div className="text-xs font-extrabold text-[#E88AAE] uppercase tracking-wider">
+            Margin protected ✓
+          </div>
+
           <p className="text-slate-300 text-base max-w-2xl mx-auto">
             Experience real-time policy-enforced bargaining where buyers save and suppliers protect profit margins.
           </p>

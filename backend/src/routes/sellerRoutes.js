@@ -154,14 +154,11 @@ router.post('/catalog', async (req, res) => {
       maximumDiscountAmount: rules?.maximumDiscountAmount || 20000.0,
       minimumQuantity: rules?.minimumQuantity || 1,
       maximumQuantity: rules?.maximumQuantity || null,
-      bulkDiscountRules: rules?.bulkDiscountRules || [
-        { minQuantity: 10, maxQuantity: 49, discountPercent: 3.0 },
-        { minQuantity: 50, maxQuantity: 200, discountPercent: 5.0 }
-      ],
-      earlyPaymentDiscount: rules?.earlyPaymentDiscount || 2.0,
-      leadTimeExtensionDays: rules?.leadTimeExtensionDays || 7,
-      leadTimeExtraDiscount: rules?.leadTimeExtraDiscount || 1.0,
-      marginFloorPercent: rules?.marginFloorPercent || 8.0,
+      bulkDiscountRules: rules?.bulkDiscountRules || [],
+      earlyPaymentDiscount: rules?.earlyPaymentDiscount !== undefined ? Number(rules.earlyPaymentDiscount) : 2.0,
+      leadTimeExtensionDays: rules?.leadTimeExtensionDays !== undefined ? Number(rules.leadTimeExtensionDays) : 7,
+      leadTimeExtraDiscount: rules?.leadTimeExtraDiscount !== undefined ? Number(rules.leadTimeExtraDiscount) : 1.0,
+      marginFloorPercent: rules?.marginFloorPercent !== undefined ? Number(rules.marginFloorPercent) : 8.0,
       negotiationEnabled: rules?.negotiationEnabled !== undefined ? Boolean(rules.negotiationEnabled) : true
     });
 
@@ -420,12 +417,13 @@ router.put('/rules/:productId', async (req, res) => {
     const sellerId = req.user.id;
     const productId = req.params.productId;
 
+    const product = await Product.findOne({ _id: productId, sellerId });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found or unauthorized' });
+    }
+
     let rule = await ProductRule.findOne({ productId, sellerId });
     if (!rule) {
-      const product = await Product.findOne({ _id: productId, sellerId });
-      if (!product) {
-        return res.status(404).json({ error: 'Product not found' });
-      }
       rule = new ProductRule({
         productId,
         sellerId,
@@ -436,22 +434,79 @@ router.put('/rules/:productId', async (req, res) => {
     const { 
       minimumPrice, 
       maximumDiscountPercent, 
+      maximumDiscountAmount,
       earlyPaymentDiscount, 
+      leadTimeExtensionDays,
       leadTimeExtraDiscount, 
+      standardLeadTimeDays,
       marginFloorPercent,
+      maxRounds,
+      bulkDiscountRules,
       negotiationEnabled
     } = req.body;
 
     if (minimumPrice !== undefined) rule.minimumPrice = Number(minimumPrice);
     if (maximumDiscountPercent !== undefined) rule.maximumDiscountPercent = Number(maximumDiscountPercent);
+    if (maximumDiscountAmount !== undefined) rule.maximumDiscountAmount = Number(maximumDiscountAmount);
     if (earlyPaymentDiscount !== undefined) rule.earlyPaymentDiscount = Number(earlyPaymentDiscount);
+    if (leadTimeExtensionDays !== undefined) rule.leadTimeExtensionDays = Number(leadTimeExtensionDays);
     if (leadTimeExtraDiscount !== undefined) rule.leadTimeExtraDiscount = Number(leadTimeExtraDiscount);
     if (marginFloorPercent !== undefined) rule.marginFloorPercent = Number(marginFloorPercent);
+    if (maxRounds !== undefined) rule.maxRounds = Number(maxRounds);
     if (negotiationEnabled !== undefined) rule.negotiationEnabled = Boolean(negotiationEnabled);
+
+    if (standardLeadTimeDays !== undefined) {
+      product.standardLeadTimeDays = Number(standardLeadTimeDays);
+      await product.save();
+    }
+
+    if (Array.isArray(bulkDiscountRules)) {
+      // Validate slab ranges & overlapping
+      for (let i = 0; i < bulkDiscountRules.length; i++) {
+        const s = bulkDiscountRules[i];
+        if (!s.minQuantity || Number(s.minQuantity) <= 0) {
+          return res.status(400).json({ error: `Slab ${i + 1}: Minimum quantity must be greater than 0.` });
+        }
+        if (s.maxQuantity !== null && s.maxQuantity !== undefined && s.maxQuantity !== '' && Number(s.maxQuantity) < Number(s.minQuantity)) {
+          return res.status(400).json({ error: `Slab ${i + 1}: Maximum quantity (${s.maxQuantity}) cannot be less than minimum quantity (${s.minQuantity}).` });
+        }
+        if (s.discountPercent === undefined || Number(s.discountPercent) < 0) {
+          return res.status(400).json({ error: `Slab ${i + 1}: Discount percentage cannot be negative.` });
+        }
+      }
+
+      // Check overlapping ranges
+      for (let i = 0; i < bulkDiscountRules.length; i++) {
+        for (let j = i + 1; j < bulkDiscountRules.length; j++) {
+          const s1 = bulkDiscountRules[i];
+          const s2 = bulkDiscountRules[j];
+          const min1 = Number(s1.minQuantity);
+          const max1 = (s1.maxQuantity !== null && s1.maxQuantity !== undefined && s1.maxQuantity !== '') ? Number(s1.maxQuantity) : Infinity;
+          const min2 = Number(s2.minQuantity);
+          const max2 = (s2.maxQuantity !== null && s2.maxQuantity !== undefined && s2.maxQuantity !== '') ? Number(s2.maxQuantity) : Infinity;
+
+          if (Math.max(min1, min2) <= Math.min(max1, max2)) {
+            return res.status(400).json({ 
+              error: `Bulk discount slabs overlap between range (${min1}-${s1.maxQuantity || '∞'}) and (${min2}-${s2.maxQuantity || '∞'}).` 
+            });
+          }
+        }
+      }
+
+      rule.bulkDiscountRules = bulkDiscountRules.map(s => ({
+        minQuantity: Number(s.minQuantity),
+        maxQuantity: (s.maxQuantity !== null && s.maxQuantity !== undefined && s.maxQuantity !== '') ? Number(s.maxQuantity) : null,
+        discountPercent: Number(s.discountPercent)
+      }));
+    }
 
     await rule.save();
 
-    res.json({ message: 'Product negotiation rules updated successfully', rule });
+    res.json({ 
+      message: 'Product negotiation rules updated successfully', 
+      rule,
+      standardLeadTimeDays: product.standardLeadTimeDays
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

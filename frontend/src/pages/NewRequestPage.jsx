@@ -10,7 +10,6 @@ import {
   Trash2, 
   ShieldCheck, 
   Zap, 
-  Search, 
   Package, 
   Store, 
   Globe, 
@@ -28,11 +27,44 @@ export default function NewRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   
-  // AI Analyzed State
+  // AI Analyzed & Editable Form State
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [items, setItems] = useState([]);
+  const [totalBudget, setTotalBudget] = useState(100000);
+  const [deadlineDays, setDeadlineDays] = useState(7);
 
   const navigate = useNavigate();
+
+  // Helper: Find DB product MOQ for a line item
+  const getMatchedProductMoq = (itemName) => {
+    if (!itemName || !analysisResult?.dbMatches?.products) return null;
+    const clean = itemName.trim().toLowerCase();
+    if (!clean) return null;
+    const match = analysisResult.dbMatches.products.find(p => 
+      p.name?.toLowerCase().includes(clean) || clean.includes(p.name?.toLowerCase() || '')
+    );
+    return match ? (match.moq || 1) : null;
+  };
+
+  // Helper: Get quantity validation error for an item
+  const getItemQuantityError = (item) => {
+    const rawQty = item.quantity;
+    if (rawQty === '' || rawQty === null || rawQty === undefined) {
+      return 'Required Quantity is required.';
+    }
+    const numQty = Number(rawQty);
+    if (isNaN(numQty) || numQty <= 0) {
+      return 'Required Quantity must be a positive number (minimum 1 unit).';
+    }
+    if (!Number.isInteger(numQty)) {
+      return 'Required Quantity must be a whole integer (no decimals).';
+    }
+    const moq = getMatchedProductMoq(item.item_name);
+    if (moq && numQty < moq) {
+      return `Quantity (${numQty} units) is below seller Minimum Order Quantity (MOQ: ${moq} units).`;
+    }
+    return null;
+  };
 
   // Step 1: Run AI Analysis
   const handleAnalyzeRequirement = async (e) => {
@@ -45,7 +77,15 @@ export default function NewRequestPage() {
     try {
       const res = await api.post('/ai/analyze-procurement', { promptText });
       setAnalysisResult(res.data);
-      setIsEditing(false);
+
+      const parsedItems = (res.data.analysis?.items || []).map(i => ({
+        item_name: i.item_name || '',
+        quantity: i.quantity && !isNaN(Number(i.quantity)) && Number(i.quantity) > 0 ? parseInt(i.quantity, 10) : 1
+      }));
+
+      setItems(parsedItems.length > 0 ? parsedItems : [{ item_name: '', quantity: 1 }]);
+      setTotalBudget(res.data.analysis?.total_budget || 100000);
+      setDeadlineDays(res.data.analysis?.deadline_days || 7);
     } catch (err) {
       console.error('AI Analysis error:', err);
       setError('AI Analysis failed. You can still confirm and submit your requirement manually.');
@@ -54,22 +94,63 @@ export default function NewRequestPage() {
     }
   };
 
+  // Handlers for editable line items
+  const handleItemNameChange = (index, value) => {
+    const updated = [...items];
+    updated[index].item_name = value;
+    setItems(updated);
+  };
+
+  const handleQuantityChange = (index, value) => {
+    const updated = [...items];
+    updated[index].quantity = value;
+    setItems(updated);
+  };
+
+  const handleAddItem = () => {
+    setItems([...items, { item_name: '', quantity: 1 }]);
+  };
+
+  const handleRemoveItem = (index) => {
+    if (items.length <= 1) return;
+    setItems(items.filter((_, i) => i !== index));
+  };
+
   // Step 2: Confirm & Create Procurement Request in MongoDB
   const handleConfirmAndCreate = async () => {
     setIsSubmitting(true);
     setError('');
 
-    try {
-      // Use parsed items if available
-      const itemsToSubmit = analysisResult?.analysis?.items || [];
-      const budgetToSubmit = analysisResult?.analysis?.total_budget || 100000;
-      const deadlineToSubmit = analysisResult?.analysis?.deadline_days || 7;
+    const errors = [];
+    const formattedItems = items.map((item, idx) => {
+      const name = (item.item_name || '').trim();
+      if (!name) {
+        errors.push(`Product line item #${idx + 1} name cannot be empty.`);
+      }
 
+      const qErr = getItemQuantityError(item);
+      if (qErr) {
+        errors.push(`Product "${name || '#' + (idx + 1)}": ${qErr}`);
+      }
+
+      return {
+        item_name: name,
+        quantity: parseInt(item.quantity, 10)
+      };
+    });
+
+    if (errors.length > 0) {
+      setError(errors.join(' '));
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
       const res = await api.post('/buyer/requests', {
         promptText,
-        total_budget: budgetToSubmit,
-        deadline_days: deadlineToSubmit,
-        items: itemsToSubmit
+        total_budget: Number(totalBudget) || 100000,
+        deadline_days: Number(deadlineDays) || 7,
+        items: formattedItems
       });
 
       const { requirement } = res.data;
@@ -150,7 +231,7 @@ export default function NewRequestPage() {
         </div>
       </form>
 
-      {/* 2. AI ANALYSIS RESULTS SECTION */}
+      {/* 2. AI ANALYSIS & EDITABLE QUANTITY REQUIREMENT SECTION */}
       {analysisResult && (
         <div className="space-y-6">
           {/* AI Structured Requirement Card */}
@@ -166,49 +247,141 @@ export default function NewRequestPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsEditing(!isEditing)}
-                className="px-4 py-2 bg-[#FAF6F0] hover:bg-white border border-[#EAE3D9] text-[#20284F] font-bold text-xs rounded-xl transition-colors flex items-center space-x-1.5 self-start sm:self-center"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-[#5A6588]" />
-                <span>{isEditing ? 'Done Editing' : 'Edit Details'}</span>
-              </button>
+              <div className="text-xs text-[#5A6588] font-bold px-3 py-1.5 rounded-xl bg-[#FAF6F0] border border-[#EAE3D9]">
+                Review & Edit Required Quantities
+              </div>
             </div>
 
-            {/* Extracted Items Grid */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-extrabold text-[#5A6588] uppercase tracking-wider">Extracted Product Line Items</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {analysisResult.analysis?.items?.map((item, idx) => (
-                  <div key={idx} className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-extrabold text-[#20284F] block">{item.item_name}</span>
-                      <span className="text-[11px] text-[#5A6588]">Quantity: <strong className="text-[#7668D8] font-bold">{item.quantity} units</strong></span>
+            {/* Extracted & Editable Product Line Items */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-extrabold text-[#5A6588] uppercase tracking-wider">
+                  Product Line Items & Required Quantities
+                </h4>
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="text-xs font-extrabold text-[#7668D8] hover:text-[#20284F] flex items-center space-x-1 px-3 py-1 rounded-xl bg-[#7668D8]/10 border border-[#7668D8]/20 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Product</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {items.map((item, idx) => {
+                  const qErr = getItemQuantityError(item);
+                  const moqVal = getMatchedProductMoq(item.item_name);
+
+                  return (
+                    <div key={idx} className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] space-y-3 relative transition-all hover:border-[#7668D8]/40">
+                      
+                      {/* Product Name & Delete */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-extrabold text-[#5A6588] uppercase tracking-wider mb-1">
+                            Product Name
+                          </label>
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              value={item.item_name}
+                              onChange={(e) => handleItemNameChange(idx, e.target.value)}
+                              placeholder="Product name (e.g. Pencils)"
+                              className="w-full bg-white border border-[#EAE3D9] focus:border-[#7668D8] rounded-xl px-3 py-1.5 text-xs font-extrabold text-[#20284F] focus:outline-none focus:ring-1 focus:ring-[#7668D8]"
+                            />
+                          </div>
+                        </div>
+                        
+                        {items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(idx)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors mt-4"
+                            title="Remove product"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Required Quantity Input */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-extrabold text-[#20284F] flex items-center justify-between">
+                          <span className="flex items-center space-x-1">
+                            <Package className="w-3.5 h-3.5 text-[#7668D8]" />
+                            <span>Required Quantity</span>
+                            <span className="text-rose-500 font-bold">*</span>
+                          </span>
+                          {moqVal && (
+                            <span className="text-[10px] text-[#5A6588] font-semibold">
+                              MOQ: {moqVal} units
+                            </span>
+                          )}
+                        </label>
+                        
+                        <div className="relative flex items-center">
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={item.quantity}
+                            onChange={(e) => handleQuantityChange(idx, e.target.value)}
+                            placeholder="Enter quantity"
+                            className={`w-full bg-white border rounded-xl pl-3.5 pr-16 py-2 text-xs sm:text-sm font-extrabold font-mono text-[#20284F] focus:outline-none focus:ring-2 transition-all ${
+                              qErr
+                                ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500 focus:ring-rose-200'
+                                : 'border-[#EAE3D9] focus:border-[#7668D8] focus:ring-[#7668D8]/20 hover:border-[#7668D8]/50'
+                            }`}
+                          />
+                          <span className="absolute right-3 text-xs font-extrabold text-[#7668D8] bg-[#7668D8]/10 px-2 py-0.5 rounded-md border border-[#7668D8]/20 pointer-events-none">
+                            units
+                          </span>
+                        </div>
+
+                        {qErr && (
+                          <div className="text-[11px] font-extrabold text-rose-600 flex items-center space-x-1 pt-0.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{qErr}</span>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
-                    <Package className="w-5 h-5 text-[#7668D8]" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            {/* Extracted Budget & Timeline */}
+            {/* Extracted Budget & Timeline Inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-[#FAF6F0] rounded-2xl border border-[#EAE3D9] text-xs font-medium text-[#20284F]">
-              <div>
-                <span className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider">Total Target Budget</span>
-                <strong className="text-[#20284F] font-mono text-base font-extrabold">
-                  ₹{Number(analysisResult.analysis?.total_budget || 100000).toLocaleString('en-IN')}
-                </strong>
+              <div className="space-y-1">
+                <label className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider">Total Target Budget (₹)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={totalBudget}
+                  onChange={(e) => setTotalBudget(e.target.value)}
+                  placeholder="Target budget"
+                  className="w-full bg-white border border-[#EAE3D9] focus:border-[#7668D8] rounded-xl px-3 py-1.5 text-xs font-extrabold font-mono text-[#20284F] focus:outline-none"
+                />
               </div>
-              <div>
-                <span className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider">Delivery Timeframe</span>
-                <strong className="text-[#20284F] text-base font-extrabold">
-                  {analysisResult.analysis?.deadline_days || 7} Days
-                </strong>
+
+              <div className="space-y-1">
+                <label className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider">Delivery Timeframe (Days)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={deadlineDays}
+                  onChange={(e) => setDeadlineDays(e.target.value)}
+                  placeholder="Delivery timeframe in days"
+                  className="w-full bg-white border border-[#EAE3D9] focus:border-[#7668D8] rounded-xl px-3 py-1.5 text-xs font-extrabold text-[#20284F] focus:outline-none"
+                />
               </div>
-              <div>
-                <span className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider">Feasibility Status</span>
-                <span className={`inline-flex items-center space-x-1 mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+
+              <div className="flex flex-col justify-end">
+                <span className="text-[#5A6588] block text-[11px] font-extrabold uppercase tracking-wider mb-1">Feasibility Status</span>
+                <span className={`inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-extrabold ${
                   analysisResult.feasibility?.isFeasible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                 }`}>
                   <span>{analysisResult.feasibility?.isFeasible ? '✓ Budget Feasible' : '⚠ High Value Request'}</span>
@@ -285,7 +458,7 @@ export default function NewRequestPage() {
             </div>
 
             {/* External Web Market Research */}
-            <div className="bg-white border border-[#EAE3D9] rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="bg-[#white] bg-white border border-[#EAE3D9] rounded-3xl p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-[#EAE3D9] pb-3">
                 <div className="flex items-center space-x-2">
                   <Globe className="w-4 h-4 text-[#7668D8]" />
@@ -335,4 +508,3 @@ export default function NewRequestPage() {
     </div>
   );
 }
-

@@ -177,7 +177,7 @@ export default function NegotiationDemo() {
                   transition={{ duration: 0.3 }}
                   className="space-y-5"
                 >
-                  <div className="bg-slate-900 p-4.5 rounded-2xl border border-purple-800/40 space-y-3">
+                  <div className="bg-slate-900 p-5 rounded-2xl border border-purple-800/40 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-mono font-bold text-slate-400 uppercase">
                         Current Step {activeStep} Action

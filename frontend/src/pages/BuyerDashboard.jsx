@@ -156,12 +156,6 @@ export default function BuyerDashboard({ onOpenAudit }) {
           {/* Left Hero Column */}
           <div className="lg:col-span-7 space-y-4">
             
-            {/* Greeting Pill */}
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-[#EAE3D9] text-[#20284F] text-xs font-extrabold shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#E88AAE] animate-pulse" />
-              <span>Good Morning, Laxmi 👋</span>
-            </div>
-
             {/* Headline */}
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#20284F] leading-[1.12] tracking-tight font-sans">
               Your next <span className="bg-gradient-to-r from-[#7668D8] via-[#AB70C5] to-[#E88AAE] bg-clip-text text-transparent">great deal</span><br className="hidden sm:inline" />

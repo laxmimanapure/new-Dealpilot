@@ -33,6 +33,10 @@ const procurementRequirementSchema = new mongoose.Schema(
       type: Number,
       default: 14
     },
+    isAdvancePayment: {
+      type: Boolean,
+      default: false
+    },
     status: {
       type: String,
       enum: ['SUBMITTED', 'MATCHING', 'NEGOTIATING', 'OFFER_READY', 'ORDERED', 'COMPLETED', 'CANCELLED'],

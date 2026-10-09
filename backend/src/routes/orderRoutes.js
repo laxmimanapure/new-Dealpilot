@@ -11,6 +11,8 @@ const { logAuditEvent } = require('../services/auditService');
 
 router.use(authenticateToken);
 
+const ProductRule = require('../models/ProductRule');
+
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let rand = '';
@@ -20,10 +22,43 @@ function generateOrderNumber() {
   return `DP-ORD-${rand}`;
 }
 
+function validateDeliveryAddress(address) {
+  if (!address) {
+    return 'Delivery address is required.';
+  }
+  const { fullName, phoneNumber, addressLine1, city, state, pinCode, pincode } = address;
+  const pin = pinCode || pincode;
+
+  if (!fullName || !fullName.trim()) return 'Full name in delivery address is required.';
+  if (!phoneNumber || !phoneNumber.trim()) return 'Phone number in delivery address is required.';
+  
+  const cleanPhone = String(phoneNumber).replace(/[\s-]/g, '');
+  if (!/^\d{10}$/.test(cleanPhone)) {
+    return 'Phone number must be a valid 10-digit number.';
+  }
+
+  if (!addressLine1 || !addressLine1.trim()) return 'Address Line 1 is required.';
+  if (!city || !city.trim()) return 'City is required.';
+  if (!state || !state.trim()) return 'State is required.';
+  if (!pin || !String(pin).trim()) return 'PIN code is required.';
+
+  const cleanPin = String(pin).trim();
+  if (!/^\d{6}$/.test(cleanPin)) {
+    return 'PIN code must be a valid 6-digit Indian PIN code.';
+  }
+
+  return null;
+}
+
 // POST /api/orders - Confirm Offer & Create Order
 router.post('/orders', async (req, res) => {
   try {
-    const { requestId, offerId, planType, totalLandedCost, leadTimeDays, sellerId } = req.body;
+    const { requestId, offerId, paymentMethod, deliveryAddress, leadTimeDays } = req.body;
+
+    const addressError = validateDeliveryAddress(deliveryAddress);
+    if (addressError) {
+      return res.status(400).json({ error: addressError });
+    }
 
     let offer = null;
     if (offerId) {
@@ -50,10 +85,37 @@ router.post('/orders', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to place order for another buyer requirement' });
     }
 
+    const selectedPaymentMethod = paymentMethod === 'COD' ? 'COD' : 'ONLINE';
+    const negotiatedBaseAmount = offer.negotiatedAmount;
+    const firstItem = offer.items?.[0];
+    let onlineDiscountPct = 0;
+
+    if (firstItem?.productId) {
+      const rule = await ProductRule.findOne({ productId: firstItem.productId }).lean();
+      if (rule) {
+        onlineDiscountPct = rule.earlyPaymentDiscount ?? rule.early_payment_discount ?? rule.advance_pay_extra_discount_percent ?? 0;
+      }
+    }
+
+    let onlineDiscountAmount = 0;
+    let finalAmount = negotiatedBaseAmount;
+    let initialPaymentStatus = 'PENDING_PAYMENT';
+    let initialOrderStatus = 'PENDING';
+
+    if (selectedPaymentMethod === 'ONLINE' && onlineDiscountPct > 0) {
+      onlineDiscountAmount = Math.round((negotiatedBaseAmount * (onlineDiscountPct / 100)) * 100) / 100;
+      finalAmount = Math.round((negotiatedBaseAmount - onlineDiscountAmount) * 100) / 100;
+    }
+
+    if (selectedPaymentMethod === 'COD') {
+      onlineDiscountPct = 0;
+      onlineDiscountAmount = 0;
+      finalAmount = negotiatedBaseAmount;
+      initialPaymentStatus = 'PENDING_PAYMENT';
+      initialOrderStatus = 'CONFIRMED';
+    }
+
     const orderNumber = generateOrderNumber();
-    const finalAmount = totalLandedCost ? Number(totalLandedCost) : offer.negotiatedAmount;
-    const subtotal = offer.originalAmount;
-    const savings = offer.savings;
 
     const order = await Order.create({
       orderNumber,
@@ -62,12 +124,26 @@ router.post('/orders', async (req, res) => {
       requirementId: requirement._id,
       offerId: offer._id,
       items: offer.items.map(i => ({ name: i.name, quantity: i.quantity, price: i.unitListPrice })),
-      subtotal,
-      savings,
+      subtotal: offer.originalAmount,
+      savings: offer.savings,
+      negotiatedBaseAmount,
+      onlineDiscountPercent: selectedPaymentMethod === 'ONLINE' ? onlineDiscountPct : 0,
+      onlineDiscountAmount,
       finalAmount,
       leadTimeDays: leadTimeDays || offer.leadTimeDays || 7,
-      paymentStatus: 'PENDING_PAYMENT',
-      orderStatus: 'PENDING'
+      paymentMethod: selectedPaymentMethod,
+      deliveryAddress: {
+        fullName: deliveryAddress.fullName.trim(),
+        phoneNumber: String(deliveryAddress.phoneNumber).trim(),
+        addressLine1: deliveryAddress.addressLine1.trim(),
+        addressLine2: (deliveryAddress.addressLine2 || '').trim(),
+        city: deliveryAddress.city.trim(),
+        state: deliveryAddress.state.trim(),
+        pinCode: String(deliveryAddress.pinCode).trim(),
+        deliveryInstructions: (deliveryAddress.deliveryInstructions || '').trim()
+      },
+      paymentStatus: initialPaymentStatus,
+      orderStatus: initialOrderStatus
     });
 
     requirement.status = 'ORDERED';
@@ -78,7 +154,14 @@ router.post('/orders', async (req, res) => {
       orderId: order._id,
       userId: req.user.id,
       action: 'BUYER_CONFIRMED_ORDER',
-      details: { orderNumber, finalAmount, savings, leadTimeDays: order.leadTimeDays },
+      details: {
+        orderNumber,
+        paymentMethod: selectedPaymentMethod,
+        negotiatedBaseAmount,
+        onlineDiscountAmount,
+        finalAmount,
+        leadTimeDays: order.leadTimeDays
+      },
       policyResult: 'APPROVED'
     });
 
@@ -86,7 +169,11 @@ router.post('/orders', async (req, res) => {
       message: 'Order created successfully',
       orderId: order._id,
       orderNumber: order.orderNumber,
-      totalLandedCost: order.finalAmount
+      paymentMethod: order.paymentMethod,
+      negotiatedBaseAmount: order.negotiatedBaseAmount,
+      onlineDiscountAmount: order.onlineDiscountAmount,
+      totalLandedCost: order.finalAmount,
+      deliveryAddress: order.deliveryAddress
     });
   } catch (err) {
     console.error('Create order error:', err);
@@ -123,10 +210,15 @@ router.get('/orders', async (req, res) => {
       buyer_company_name: o.buyerId?.companyName || o.buyerId?.name || 'Buyer',
       buyer_name: o.buyerId?.name,
       parsed_summary: o.requirementId?.rawPrompt || 'Procurement Order',
+      negotiated_base_amount: o.negotiatedBaseAmount || o.finalAmount,
+      online_discount_percent: o.onlineDiscountPercent || 0,
+      online_discount_amount: o.onlineDiscountAmount || 0,
       negotiated_price: o.finalAmount,
       total_landed_cost: o.finalAmount,
       savings: o.savings,
       lead_time_days: o.leadTimeDays,
+      payment_method: o.paymentMethod || 'ONLINE',
+      delivery_address: o.deliveryAddress || null,
       payment_status: o.paymentStatus === 'PAID' ? 'paid' : (o.paymentStatus === 'FAILED' ? 'failed' : 'pending'),
       order_status: o.orderStatus === 'CONFIRMED' ? 'confirmed' : 'pending',
       created_at: o.createdAt
@@ -152,6 +244,14 @@ router.get('/orders/:id', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    // Security check: only buyer or seller of the order can view it
+    if (req.user.role === 'buyer' && order.buyerId?._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized to view another buyer order' });
+    }
+    if (req.user.role === 'seller' && order.sellerId?._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized to view another seller order' });
+    }
+
     const payments = await Payment.find({ orderId: order._id }).sort({ createdAt: -1 }).lean();
 
     res.json({
@@ -167,9 +267,14 @@ router.get('/orders/:id', async (req, res) => {
         items: order.items,
         subtotal: order.subtotal,
         savings: order.savings,
+        negotiated_base_amount: order.negotiatedBaseAmount || order.finalAmount,
+        online_discount_percent: order.onlineDiscountPercent || 0,
+        online_discount_amount: order.onlineDiscountAmount || 0,
         negotiated_price: order.finalAmount,
         total_landed_cost: order.finalAmount,
         lead_time_days: order.leadTimeDays,
+        payment_method: order.paymentMethod || 'ONLINE',
+        delivery_address: order.deliveryAddress || null,
         payment_status: order.paymentStatus === 'PAID' ? 'paid' : (order.paymentStatus === 'FAILED' ? 'failed' : 'pending'),
         order_status: order.orderStatus === 'CONFIRMED' ? 'confirmed' : 'pending',
         payments: payments.map(p => ({
@@ -245,4 +350,5 @@ const handleVerifyPayment = async (req, res) => {
 router.post('/checkout/verify-payment', handleVerifyPayment);
 router.post('/payments/verify', handleVerifyPayment);
 
+router.validateDeliveryAddress = validateDeliveryAddress;
 module.exports = router;

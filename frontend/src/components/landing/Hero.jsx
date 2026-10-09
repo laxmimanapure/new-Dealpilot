@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Sparkles,
   ArrowRight,
   Check,
   ShoppingBag,
@@ -44,17 +43,6 @@ export default function Hero() {
           {/* ================= LEFT COLUMN: HERO HEADLINE & ACTIONS (Shifted Left) ================= */}
           <div className="lg:col-span-6 xl:col-span-6 space-y-6 sm:space-y-7 max-w-2xl lg:pl-2">
             
-            {/* Sleek Minimal Category Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#7668D8]/10 border border-[#7668D8]/20 text-xs font-extrabold text-[#7668D8] shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#E88AAE] animate-pulse" />
-              <span className="tracking-wide uppercase text-[11px]">AI-POWERED B2B PROCUREMENT ENGINE</span>
-            </motion.div>
-
             {/* Main Headline */}
             <motion.h1
               initial={{ opacity: 0, y: 18 }}

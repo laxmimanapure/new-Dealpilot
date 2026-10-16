@@ -6,7 +6,10 @@ const offerItemSchema = new mongoose.Schema(
     name: { type: String, required: true },
     quantity: { type: Number, required: true },
     unitListPrice: { type: Number, required: true },
-    totalListPrice: { type: Number, required: true }
+    totalListPrice: { type: Number, required: true },
+    unitNegotiatedPrice: { type: Number },
+    totalNegotiatedPrice: { type: Number },
+    minAllowedPrice: { type: Number }
   },
   { _id: false }
 );
@@ -30,7 +33,9 @@ const discountComponentSchema = new mongoose.Schema(
   {
     applied: { type: Boolean, default: false },
     percent: { type: Number, default: 0 },
+    configuredPercent: { type: Number, default: 0 },
     amount: { type: Number, default: 0 },
+    explanation: { type: String, default: '' },
     reason: { type: String, default: '' },
     moq: { type: Number },
     qtyAboveMoq: { type: Number },
@@ -48,6 +53,18 @@ const discountBreakdownSchema = new mongoose.Schema(
     advancePayDiscount: discountComponentSchema,
     totalDiscountAmount: { type: Number, required: true },
     finalNegotiatedTotal: { type: Number, required: true }
+  },
+  { _id: false }
+);
+
+const landedCostBreakdownSchema = new mongoose.Schema(
+  {
+    negotiatedPrice: { type: Number },
+    deliveryCharge: { type: Number, default: 0 },
+    financingCost: { type: Number, default: 0 },
+    earlyPaymentBenefit: { type: Number, default: 0 },
+    totalLandedCost: { type: Number },
+    leadTimeDays: { type: Number }
   },
   { _id: false }
 );
@@ -75,6 +92,14 @@ const sellerOfferSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    minAllowedPrice: {
+      type: Number,
+      default: 0
+    },
+    landedCost: {
+      type: Number
+    },
+    landedCostBreakdown: landedCostBreakdownSchema,
     savings: {
       type: Number,
       required: true
@@ -96,6 +121,18 @@ const sellerOfferSchema = new mongoose.Schema(
     isBestDeal: {
       type: Boolean,
       default: false
+    },
+    isFastestDelivery: {
+      type: Boolean,
+      default: false
+    },
+    planType: {
+      type: String,
+      default: null
+    },
+    planLabel: {
+      type: String,
+      default: null
     },
     whyThisDeal: [{ type: String }]
   },

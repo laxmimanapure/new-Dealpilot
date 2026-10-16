@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
+const Product = require('../models/Product');
 const { logAuditEvent } = require('./auditService');
 
 let razorpayInstance = null;
@@ -18,12 +19,50 @@ try {
   console.log('💳 [Payment Service] Razorpay SDK fallback mode.');
 }
 
+function getRazorpaySecret() {
+  return process.env.RAZORPAY_KEY_SECRET || process.env.JWT_SECRET || 'dealpilot_default_rzp_secret';
+}
+
+function generateRazorpaySignature(razorpayOrderId, razorpayPaymentId, secret = getRazorpaySecret()) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+    .digest('hex');
+}
+
 /**
- * Creates a Razorpay order or simulated test order
+ * Creates a Razorpay order after verifying order ownership and buyer role
  */
-async function createRazorpayOrder({ orderId, amount, currency = 'INR', userId }) {
-  const amountInPaisa = Math.round(amount * 100);
-  const receipt = `rec_${orderId}_${Date.now()}`;
+async function createRazorpayOrder({ orderId, currency = 'INR', userId, userRole }) {
+  if (userRole && userRole !== 'buyer') {
+    const err = new Error('Unauthorized: Only buyers can initiate order payments.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    const err = new Error('Order not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!userId || order.buyerId.toString() !== userId.toString()) {
+    const err = new Error('Unauthorized: You do not own this order.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (order.paymentStatus === 'PAID') {
+    const err = new Error('Order is already paid.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Always derive amount from the verified server-side order record
+  const verifiedAmount = Number(order.finalAmount);
+  const amountInPaisa = Math.round(verifiedAmount * 100);
+  const receipt = `rec_${order._id}_${Date.now()}`;
 
   let razorpayOrderId = `rzp_order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
@@ -33,7 +72,7 @@ async function createRazorpayOrder({ orderId, amount, currency = 'INR', userId }
         amount: amountInPaisa,
         currency,
         receipt,
-        notes: { orderId: orderId.toString() }
+        notes: { orderId: order._id.toString() }
       });
       razorpayOrderId = rzpOrder.id;
     } catch (err) {
@@ -43,17 +82,17 @@ async function createRazorpayOrder({ orderId, amount, currency = 'INR', userId }
 
   // Record payment initiation in MongoDB
   await Payment.create({
-    orderId,
+    orderId: order._id,
     razorpayOrderId,
-    amount,
+    amount: verifiedAmount,
     status: 'INITIATED'
   });
 
   await logAuditEvent({
-    orderId,
+    orderId: order._id,
     userId,
     action: 'PAYMENT_INITIATED',
-    details: { orderId, razorpayOrderId, amount, currency },
+    details: { orderId: order._id, razorpayOrderId, amount: verifiedAmount, currency },
     policyResult: 'INFO'
   });
 
@@ -66,12 +105,43 @@ async function createRazorpayOrder({ orderId, amount, currency = 'INR', userId }
 }
 
 /**
- * Verifies Razorpay payment signature on backend
+ * Verifies Razorpay payment signature and ownership on backend
  */
-async function verifyPayment({ orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature, simulateFailure = false, userId }) {
+async function verifyPayment({
+  orderId,
+  razorpayPaymentId,
+  razorpayOrderId,
+  razorpaySignature,
+  simulateFailure = false,
+  userId,
+  userRole
+}) {
+  if (userRole && userRole !== 'buyer') {
+    const err = new Error('Unauthorized: Only buyers can verify order payments.');
+    err.statusCode = 403;
+    throw err;
+  }
+
   const order = await Order.findById(orderId);
   if (!order) {
-    throw new Error('Order not found');
+    const err = new Error('Order not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!userId || order.buyerId.toString() !== userId.toString()) {
+    const err = new Error('Unauthorized: You do not own this order.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // Idempotency guard: if already paid, do not re-process or re-deduct stock
+  if (order.paymentStatus === 'PAID' && order.orderStatus === 'CONFIRMED') {
+    return {
+      success: true,
+      message: 'Payment already verified and order confirmed.',
+      order_number: order.orderNumber
+    };
   }
 
   if (simulateFailure) {
@@ -80,8 +150,9 @@ async function verifyPayment({ orderId, razorpayPaymentId, razorpayOrderId, razo
     await order.save();
 
     await Payment.findOneAndUpdate(
-      { orderId },
-      { status: 'FAILED', errorMessage: 'Payment declined or cancelled by user' }
+      { orderId: order._id },
+      { status: 'FAILED', errorMessage: 'Payment declined or cancelled by user' },
+      { sort: { createdAt: -1 } }
     );
 
     await logAuditEvent({
@@ -100,37 +171,93 @@ async function verifyPayment({ orderId, razorpayPaymentId, razorpayOrderId, razo
     };
   }
 
-  // Real Razorpay HMAC SHA256 Signature Verification if secret is available
-  const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (razorpaySecret && razorpayOrderId && razorpayPaymentId && razorpaySignature) {
-    const generatedSignature = crypto
-      .createHmac('sha256', razorpaySecret)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest('hex');
+  // Require valid payment identifiers and cryptographic signature — NEVER skip verification when missing
+  const cleanOrderId = typeof razorpayOrderId === 'string' ? razorpayOrderId.trim() : '';
+  const cleanPaymentId = typeof razorpayPaymentId === 'string' ? razorpayPaymentId.trim() : '';
+  const cleanSignature = typeof razorpaySignature === 'string' ? razorpaySignature.trim() : '';
 
-    if (generatedSignature !== razorpaySignature) {
-      order.paymentStatus = 'FAILED';
-      await order.save();
+  if (!cleanOrderId || !cleanPaymentId || !cleanSignature) {
+    order.paymentStatus = 'FAILED';
+    order.orderStatus = 'PENDING';
+    await order.save();
 
-      await Payment.findOneAndUpdate(
-        { orderId },
-        { status: 'FAILED', errorMessage: 'Invalid Razorpay HMAC signature verification' }
+    await Payment.findOneAndUpdate(
+      { orderId: order._id },
+      { status: 'FAILED', errorMessage: 'Missing Razorpay payment identifiers or signature' },
+      { sort: { createdAt: -1 } }
+    );
+
+    await logAuditEvent({
+      orderId: order._id,
+      userId,
+      action: 'PAYMENT_SIGNATURE_MISSING',
+      details: { orderNumber: order.orderNumber },
+      policyResult: 'REJECTED'
+    });
+
+    return {
+      success: false,
+      message: 'Payment verification failed: Missing required Razorpay payment identifiers or signature.',
+      order_number: order.orderNumber,
+      can_retry: true
+    };
+  }
+
+  // Verify HMAC SHA256 signature
+  const razorpaySecret = getRazorpaySecret();
+  const generatedSignature = generateRazorpaySignature(cleanOrderId, cleanPaymentId, razorpaySecret);
+
+  if (generatedSignature !== cleanSignature) {
+    order.paymentStatus = 'FAILED';
+    order.orderStatus = 'PENDING';
+    await order.save();
+
+    await Payment.findOneAndUpdate(
+      { orderId: order._id },
+      { status: 'FAILED', errorMessage: 'Invalid Razorpay HMAC signature verification' },
+      { sort: { createdAt: -1 } }
+    );
+
+    await logAuditEvent({
+      orderId: order._id,
+      userId,
+      action: 'PAYMENT_SIGNATURE_MISMATCH',
+      details: { orderNumber: order.orderNumber },
+      policyResult: 'REJECTED'
+    });
+
+    return {
+      success: false,
+      message: 'Payment signature verification failed. Order payment rejected.',
+      order_number: order.orderNumber,
+      can_retry: true
+    };
+  }
+
+  // If stock was not yet deducted on this order (e.g., legacy order), deduct atomically once
+  if (!order.stockDeducted && Array.isArray(order.items) && order.items.length > 0) {
+    const deducted = [];
+    for (const item of order.items) {
+      if (!item.productId) continue;
+      const updatedProd = await Product.findOneAndUpdate(
+        { _id: item.productId, active: { $ne: false }, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity } },
+        { new: true }
       );
-
-      await logAuditEvent({
-        orderId: order._id,
-        userId,
-        action: 'PAYMENT_SIGNATURE_MISMATCH',
-        details: { orderNumber: order.orderNumber },
-        policyResult: 'REJECTED'
-      });
-
-      return {
-        success: false,
-        message: 'Payment signature verification failed. Order payment rejected.',
-        order_number: order.orderNumber
-      };
+      if (!updatedProd) {
+        for (const d of deducted) {
+          await Product.updateOne({ _id: d.productId }, { $inc: { stock: d.quantity } });
+        }
+        return {
+          success: false,
+          message: `Insufficient stock to confirm order for item "${item.name}".`,
+          order_number: order.orderNumber,
+          can_retry: false
+        };
+      }
+      deducted.push({ productId: item.productId, quantity: item.quantity });
     }
+    order.stockDeducted = true;
   }
 
   // Successful Payment Verification
@@ -139,19 +266,21 @@ async function verifyPayment({ orderId, razorpayPaymentId, razorpayOrderId, razo
   await order.save();
 
   await Payment.findOneAndUpdate(
-    { orderId },
+    { orderId: order._id },
     {
       status: 'SUCCESS',
-      razorpayPaymentId: razorpayPaymentId || `pay_${Date.now()}`,
-      razorpaySignature: razorpaySignature || 'verified_sig'
-    }
+      razorpayOrderId: cleanOrderId,
+      razorpayPaymentId: cleanPaymentId,
+      razorpaySignature: cleanSignature
+    },
+    { sort: { createdAt: -1 }, upsert: true }
   );
 
   await logAuditEvent({
     orderId: order._id,
     userId,
     action: 'PAYMENT_VERIFIED_AND_ORDER_CONFIRMED',
-    details: { orderNumber: order.orderNumber, amount: order.finalAmount, paymentId: razorpayPaymentId },
+    details: { orderNumber: order.orderNumber, amount: order.finalAmount, paymentId: cleanPaymentId },
     policyResult: 'APPROVED'
   });
 
@@ -164,5 +293,6 @@ async function verifyPayment({ orderId, razorpayPaymentId, razorpayOrderId, razo
 
 module.exports = {
   createRazorpayOrder,
-  verifyPayment
+  verifyPayment,
+  generateRazorpaySignature
 };

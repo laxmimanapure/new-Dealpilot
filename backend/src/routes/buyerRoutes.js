@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const ProcurementRequirement = require('../models/ProcurementRequirement');
 const SellerOffer = require('../models/SellerOffer');
+const Negotiation = require('../models/Negotiation');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { parseBuyerPrompt } = require('../services/aiService');
-const { processRequirementMatchingAndNegotiation } = require('../services/negotiationEngine');
+const { processRequirementMatchingAndNegotiation, matchProductToItem } = require('../services/negotiationEngine');
 const { logAuditEvent } = require('../services/auditService');
 const { getDefaultProductImage } = require('../seed');
 
@@ -139,7 +141,9 @@ router.post('/requests', async (req, res) => {
 
     let parsedResult = { items: [], total_budget: total_budget || 100000, deadline_days: deadline_days || 14 };
 
-    if (textToParse) {
+    const hasExplicitItems = Array.isArray(providedItems) && providedItems.length > 0;
+
+    if (textToParse && (!hasExplicitItems || !total_budget || !deadline_days)) {
       console.log(`\n===================================================`);
       console.log(`📥 [API DIAGNOSTIC] POST /api/buyer/requests endpoint called`);
       console.log(`   Prompt Text: "${textToParse}"`);
@@ -155,7 +159,7 @@ router.post('/requests', async (req, res) => {
     }
 
     // Strict backend validation of provided items and quantities
-    if (providedItems && Array.isArray(providedItems) && providedItems.length > 0) {
+    if (hasExplicitItems) {
       for (const i of providedItems) {
         const rawQty = i.quantity;
         const numQty = Number(rawQty);
@@ -176,13 +180,74 @@ router.post('/requests', async (req, res) => {
       }
     }
 
-    let rawItems = (providedItems && providedItems.length > 0) ? providedItems : parsedResult.items;
+    const activeProducts = await Product.find({ active: true }).lean();
+
+    let rawItems = hasExplicitItems ? providedItems : parsedResult.items;
     const finalItems = (rawItems || [])
-      .map(i => ({
-        item_name: String(i.item_name || i.name || 'Item').trim(),
-        quantity: parseInt(i.quantity, 10),
-        estimated_budget: i.estimated_budget ? Number(i.estimated_budget) : null
-      }))
+      .map(i => {
+        const itemName = String(i.item_name || i.name || 'Item').trim();
+        const quantity = parseInt(i.quantity, 10);
+        const estimatedBudget = i.estimated_budget ? Number(i.estimated_budget) : null;
+        const rawProductId = i.productId || i.product_id || i.id || i._id || null;
+        const rawSellerId = i.sellerId || i.seller_id || null;
+        const rawCategory = i.category ? String(i.category).trim() : null;
+
+        let resolvedProduct = null;
+        if (rawProductId && mongoose.Types.ObjectId.isValid(String(rawProductId))) {
+          const byId = activeProducts.find(p => String(p._id) === String(rawProductId));
+          if (byId && (!itemName || matchProductToItem(itemName, byId).matches)) {
+            resolvedProduct = byId;
+          }
+        }
+
+        if (!resolvedProduct && itemName) {
+          const candidates = activeProducts
+            .map(p => {
+              const res = matchProductToItem(itemName, p);
+              return {
+                product: p,
+                matches: res.matches,
+                score: res.score,
+                canFulfill: (p.stock || 0) >= quantity && quantity >= (p.moq || 1)
+              };
+            })
+            .filter(c => c.matches && c.score > 0)
+            .sort((a, b) => {
+              if (a.canFulfill !== b.canFulfill) return a.canFulfill ? -1 : 1;
+              if (b.score !== a.score) return b.score - a.score;
+              return (a.product.price || 0) - (b.product.price || 0);
+            });
+          if (candidates.length > 0) {
+            resolvedProduct = candidates[0].product;
+          }
+        }
+
+        const itemObj = {
+          item_name: resolvedProduct ? resolvedProduct.name : itemName,
+          quantity,
+          estimated_budget: estimatedBudget
+        };
+
+        if (resolvedProduct) {
+          itemObj.productId = resolvedProduct._id;
+          itemObj.sellerId = (rawSellerId && mongoose.Types.ObjectId.isValid(String(rawSellerId)))
+            ? rawSellerId
+            : resolvedProduct.sellerId;
+          itemObj.category = resolvedProduct.category || rawCategory || null;
+        } else {
+          if (rawProductId && mongoose.Types.ObjectId.isValid(String(rawProductId))) {
+            itemObj.productId = rawProductId;
+          }
+          if (rawSellerId && mongoose.Types.ObjectId.isValid(String(rawSellerId))) {
+            itemObj.sellerId = rawSellerId;
+          }
+          if (rawCategory) {
+            itemObj.category = rawCategory;
+          }
+        }
+
+        return itemObj;
+      })
       .filter(i => i.item_name.length > 0 && i.quantity >= 1);
 
     const finalBudget = total_budget ? Number(total_budget) : (parsedResult.total_budget || 100000);
@@ -192,10 +257,12 @@ router.post('/requests', async (req, res) => {
       return res.status(400).json({ error: 'Could not extract any product items from the requirement prompt.' });
     }
 
+    const defaultSummary = `Requirement for ${finalItems.map(i => `${i.quantity}x ${i.item_name}`).join(', ')} within ₹${finalBudget.toLocaleString('en-IN')} (${finalDeadline} days).`;
+
     const requirement = await ProcurementRequirement.create({
       buyerId,
       rawPrompt: textToParse || finalItems.map(i => `${i.quantity}x ${i.item_name}`).join(', '),
-      parsedSummary: parsedResult.parsed_summary || `Multi-item procurement requirement for ${finalItems.length} products.`,
+      parsedSummary: hasExplicitItems ? defaultSummary : (parsedResult.parsed_summary || defaultSummary),
       items: finalItems,
       targetBudget: finalBudget,
       deadlineDays: finalDeadline,
@@ -256,14 +323,27 @@ router.get('/requests/:id/plans', async (req, res) => {
       .populate('sellerId', 'name companyName email')
       .lean();
 
+    // Deterministic sorting: VALID first, OVER_BUDGET second, REJECTED last; then landedCost, negotiatedAmount, leadTimeDays
+    const statusPriority = { VALID: 0, OVER_BUDGET: 1, REJECTED: 2 };
+    offers.sort((a, b) => {
+      const pa = statusPriority[a.status] ?? 3;
+      const pb = statusPriority[b.status] ?? 3;
+      if (pa !== pb) return pa - pb;
+      const la = a.landedCost ?? a.negotiatedAmount ?? 0;
+      const lb = b.landedCost ?? b.negotiatedAmount ?? 0;
+      if (la !== lb) return la - lb;
+      if (a.negotiatedAmount !== b.negotiatedAmount) return a.negotiatedAmount - b.negotiatedAmount;
+      return (a.leadTimeDays || 7) - (b.leadTimeDays || 7);
+    });
+
     const formattedPlans = offers.map(o => {
       const discountRatio = o.originalAmount > 0 ? (o.negotiatedAmount / o.originalAmount) : 1;
       const formattedItems = (o.items || []).map(i => {
         const qty = i.quantity || 1;
-        const unitList = i.unitListPrice || (qty > 0 ? Math.round(((i.totalListPrice || 0) / qty) * 100) / 100 : 0);
-        const totalList = i.totalListPrice || (Math.round((unitList * qty) * 100) / 100);
-        const unitNegotiated = Math.round((unitList * discountRatio) * 100) / 100;
-        const totalNegotiated = Math.round((totalList * discountRatio) * 100) / 100;
+        const unitList = i.unitListPrice ?? (qty > 0 ? Math.round(((i.totalListPrice || 0) / qty) * 100) / 100 : 0);
+        const totalList = i.totalListPrice ?? (Math.round((unitList * qty) * 100) / 100);
+        const totalNegotiated = i.totalNegotiatedPrice ?? (Math.round((totalList * discountRatio) * 100) / 100);
+        const unitNegotiated = i.unitNegotiatedPrice ?? (qty > 0 ? Math.round((totalNegotiated / qty) * 100) / 100 : 0);
         return {
           productId: i.productId,
           name: i.name,
@@ -271,7 +351,8 @@ router.get('/requests/:id/plans', async (req, res) => {
           unit_list_price: unitList,
           unit_negotiated_price: unitNegotiated,
           total_list_price: totalList,
-          total_negotiated_price: totalNegotiated
+          total_negotiated_price: totalNegotiated,
+          min_allowed_price: i.minAllowedPrice
         };
       });
 
@@ -296,6 +377,7 @@ router.get('/requests/:id/plans', async (req, res) => {
         advance_pay_discount: {
           applied: Boolean(bd.advancePayDiscount?.applied ?? bd.advance_pay_discount?.applied ?? false),
           percent: bd.advancePayDiscount?.percent ?? bd.advance_pay_discount?.percent ?? 0,
+          configured_percent: bd.advancePayDiscount?.configuredPercent ?? bd.advancePayDiscount?.configured_percent ?? bd.advance_pay_discount?.configured_percent ?? 0,
           amount: bd.advancePayDiscount?.amount ?? bd.advance_pay_discount?.amount ?? 0,
           explanation: bd.advancePayDiscount?.explanation || bd.advancePayDiscount?.reason || bd.advance_pay_discount?.explanation || bd.advance_pay_discount?.reason || 'No advance payment discount applied.'
         },
@@ -312,28 +394,72 @@ router.get('/requests/:id/plans', async (req, res) => {
         total_requested_units: totalRequestedUnits,
         original_amount: o.originalAmount,
         negotiated_amount: o.negotiatedAmount,
+        min_allowed_price: o.minAllowedPrice || 0,
+        landed_cost: o.landedCost ?? o.negotiatedAmount,
+        landed_cost_breakdown: o.landedCostBreakdown || {
+          negotiatedPrice: o.negotiatedAmount,
+          deliveryCharge: 0,
+          financingCost: 0,
+          earlyPaymentBenefit: 0,
+          totalLandedCost: o.landedCost ?? o.negotiatedAmount,
+          leadTimeDays: o.leadTimeDays
+        },
         savings: o.savings,
         lead_time_days: o.leadTimeDays,
         status: o.status,
         rejection_reason: o.rejectionReason,
-        is_best_deal: Boolean(o.isBestDeal),
+        is_best_deal: Boolean(o.isBestDeal && o.status === 'VALID'),
+        is_fastest_delivery: Boolean(o.isFastestDelivery && o.status === 'VALID'),
+        plan_type: o.planType || null,
+        plan_label: o.planLabel || null,
         why_this_deal: o.whyThisDeal || [],
         rounds: o.negotiationRounds || [],
         discount_breakdown: discountBreakdownFormatted
       };
     });
 
+    const lowestCostPlan = formattedPlans.find(p => p.is_best_deal) || null;
+    const fastestDeliveryPlan = formattedPlans.find(p => p.is_fastest_delivery) || null;
+
+    let noMatchReason = null;
+    if (formattedPlans.length === 0) {
+      const activeProducts = await Product.find({ active: true }).lean();
+      if (activeProducts.length === 0) {
+        noMatchReason = 'No active seller products are currently listed in the DealPilot catalog.';
+      } else {
+        const unmatchedNames = (reqDoc.items || [])
+          .filter(rItem => {
+            if (rItem.productId && activeProducts.some(p => String(p._id) === String(rItem.productId))) {
+              return false;
+            }
+            return !activeProducts.some(p => matchProductToItem(rItem.item_name, p).matches);
+          })
+          .map(rItem => `"${rItem.item_name}"`);
+
+        if (unmatchedNames.length > 0) {
+          noMatchReason = `No active seller catalog product matched requested item(s): ${unmatchedNames.join(', ')}.`;
+        } else {
+          noMatchReason = 'No single seller in the catalog carries all requested items in a single bundle.';
+        }
+      }
+    }
+
     res.json({
       requirement: {
-        id: requirement._id,
-        raw_prompt: requirement.rawPrompt,
-        parsed_summary: requirement.parsedSummary,
-        total_budget: requirement.targetBudget,
-        deadline_days: requirement.deadlineDays,
-        items: requirement.items,
-        status: requirement.status
+        id: reqDoc._id,
+        raw_prompt: reqDoc.rawPrompt,
+        parsed_summary: reqDoc.parsedSummary,
+        total_budget: reqDoc.targetBudget,
+        deadline_days: reqDoc.deadlineDays,
+        items: reqDoc.items,
+        status: reqDoc.status
       },
-      plans: formattedPlans
+      ranking: {
+        lowest_cost_plan: lowestCostPlan,
+        fastest_delivery_plan: fastestDeliveryPlan
+      },
+      plans: formattedPlans,
+      no_match_reason: noMatchReason
     });
   } catch (err) {
     console.error('Fetch plans error:', err);

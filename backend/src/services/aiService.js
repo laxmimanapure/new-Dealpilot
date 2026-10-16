@@ -8,20 +8,48 @@ function cleanProductName(rawName) {
 
   let name = String(rawName).trim();
 
-  // Strip leading filler phrases
-  name = name.replace(/^(i need|need|i want|want|buy|looking for|purchase|require|order|please send|please get|total|overall|sum)\s+/gi, '');
-  name = name.replace(/^(units of|pieces of|items of|set of|sets of|packs of|boxes of)\s+/gi, '');
+  // Strip parenthetical category tags appended by UI prompts
+  name = name.replace(
+    /\(\s*(?:peripherals|audio|furniture|stationery|stationary|computers|electronics|monitors|laptops|general hardware|accessories|office supplies)\s*\)/gi,
+    ' '
+  );
 
-  // Strip trailing clauses starting with prepositions, budget terms, or delivery terms
-  name = name.replace(/\s+(in|within|for|by|under|around|approx|at|budget|price|cost|rs|rupees|inr|₹|\d+).*$/gi, '');
-  
-  // Strip common trailing words
-  name = name.replace(/\s+(my|is|this|the|a|an|of|to|with|and|total)$/gi, '');
+  // Strip leading filler phrases (repeatedly in case of nested phrases like "I need 10 units of")
+  for (let pass = 0; pass < 3; pass++) {
+    name = name.replace(
+      /^(?:i\s+need|need|i\s+want|want|buy|looking\s+for|purchase|require|order|please\s+send|please\s+get|procurement\s+of|request\s+for|total|overall|sum)\s+/gi,
+      ''
+    );
+    name = name.replace(
+      /^\d+\s*x?\s*(?:units?\s+of|pieces?\s+of|pcs?\s+of|items?\s+of|sets?\s+of|packs?\s+of|boxes?\s+of|nos?\s+of|units?|pieces?|pcs?|items?|sets?|packs?|boxes?|nos?)\s+/gi,
+      ''
+    );
+    name = name.replace(
+      /^(?:units?\s+of|pieces?\s+of|pcs?\s+of|items?\s+of|sets?\s+of|packs?\s+of|boxes?\s+of|nos?\s+of|units?|pieces?|pcs?|items?)\s+/gi,
+      ''
+    );
+  }
 
-  name = name.replace(/[,\.;:\?!\(\)]/g, '').trim();
+  // Strip trailing budget, delivery, and office clauses without truncating model numbers or digits inside product names
+  name = name.replace(/\s+(?:and\s+)?(?:i\s+)?(?:need|want|require)?\s*(?:delivery|delivered|deliver|shipping)\b.*$/gi, '');
+  name = name.replace(/\s+(?:in|within|by)\s+\d+\s*(?:days?|weeks?)\b.*$/gi, '');
+  name = name.replace(/\s+for\s+(?:my\s+|our\s+|the\s+)?(?:office|school|institute|company|campus|team)\b.*$/gi, '');
+  name = name.replace(/\s+(?:with\s+a?\s*budget|my\s+total\s+budget|my\s+budget|total\s+budget|target\s+budget|budget|price|cost|limit)\b.*$/gi, '');
+  name = name.replace(/\s+(?:under|around|approx|at)\s*(?:₹|rs\.?|rupees|inr|\d[\d,]*)\b.*$/gi, '');
+  name = name.replace(/\s+(?:₹\s*[\d,]+|[\d,]+\s*(?:rs\.?|rupees|inr))\b.*$/gi, '');
+
+  // Strip trailing quantity + unit phrases (e.g. "cloth 10 units" -> "cloth")
+  name = name.replace(/\s+\d+\s*(?:units?|pieces?|pcs?|items?|sets?|packs?|boxes?|nos?|x)$/gi, '');
+  name = name.replace(/\s+(?:units?|pieces?|pcs?)$/gi, '');
+
+  // Strip common trailing stopwords
+  name = name.replace(/\s+(?:my|is|this|the|a|an|of|to|with|and|for|in|within|by|total)$/gi, '');
+
+  name = name.replace(/[,\.;:\?!\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
 
   if (name.length > 0) {
-    return name.split(' ')
+    return name
+      .split(' ')
       .filter(w => w.length > 0)
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
@@ -30,14 +58,15 @@ function cleanProductName(rawName) {
 }
 
 function fallbackParsePrompt(promptText) {
-  const text = promptText.trim();
+  const text = String(promptText || '').trim();
   const lowerText = text.toLowerCase();
 
   // 1. Extract total budget
   let total_budget = 100000;
-  const budgetMatch = lowerText.match(/(?:total\s*)?(?:budget|price|cost|limit|under|around|approx|for|is)\s*(?:of|is|:)?\s*₹?\s*([\d,]+)/i) || 
-                      lowerText.match(/₹\s*([\d,]+)/) ||
-                      lowerText.match(/([\d,]+)\s*(?:rs|rupees|inr)/i);
+  const budgetMatch =
+    lowerText.match(/(?:total\s*)?(?:target\s*)?(?:budget|price|cost|limit|under|around|approx)\s*(?:of|is|:)?\s*₹?\s*([\d,]+)/i) ||
+    lowerText.match(/₹\s*([\d,]+)/) ||
+    lowerText.match(/([\d,]+)\s*(?:rs\.?|rupees|inr)\b/i);
   if (budgetMatch) {
     const parsedB = parseFloat(budgetMatch[1].replace(/,/g, ''));
     if (!isNaN(parsedB) && parsedB > 0) {
@@ -47,7 +76,8 @@ function fallbackParsePrompt(promptText) {
 
   // 2. Extract deadline
   let deadline_days = 7;
-  const deadlineMatch = lowerText.match(/(?:within|in|by|deadline)?\s*(\d+)\s*(?:days|day|weeks|week)/i);
+  const deadlineMatch =
+    lowerText.match(/(?:within|in|by|deadline|deliver\s+is|delivery\s+in|delivery\s+within)?\s*(\d+)\s*(?:days|day|weeks|week)\b/i);
   if (deadlineMatch) {
     const num = parseInt(deadlineMatch[1], 10);
     if (!isNaN(num) && num > 0) {
@@ -55,40 +85,63 @@ function fallbackParsePrompt(promptText) {
     }
   }
 
-  // 3. Extract items and quantities
+  // 3. Extract items and quantities after removing budget & delivery sentences
   let promptForItems = text
-    .replace(/(?:total\s*)?(?:budget|price|cost|limit|under|around|approx)\s*(?:of|is|:)?\s*₹?\s*[\d,]+\s*(?:rs|rupees|inr)?/gi, '')
-    .replace(/₹\s*[\d,]+/gi)
-    .replace(/[\d,]+\s*(?:rs|rupees|inr)/gi)
-    .replace(/(?:within|in|by)?\s*\d+\s*(?:days|day|weeks|week)/gi, '');
+    .replace(/\(\s*(?:peripherals|audio|furniture|stationery|stationary|computers|electronics|monitors|laptops|general hardware|accessories|office supplies)\s*\)/gi, ' ')
+    .replace(/(?:my\s+)?(?:total\s*)?(?:target\s*)?(?:budget|price|cost|limit)\s*(?:of|is|:)?\s*₹?\s*[\d,]+\s*(?:rs\.?|rupees|inr)?/gi, ' ')
+    .replace(/(?:under|around|approx)\s*(?:of|is|:)?\s*₹?\s*[\d,]+\s*(?:rs\.?|rupees|inr)?/gi, ' ')
+    .replace(/₹\s*[\d,]+/gi, ' ')
+    .replace(/[\d,]+\s*(?:rs\.?|rupees|inr)\b/gi, ' ')
+    .replace(/(?:and\s+)?(?:i\s+)?(?:need|want|require)?\s*(?:delivery|delivered|deliver|shipping)\s*(?:within|in|by|is)?\s*\d*\s*(?:days?|weeks?)?/gi, ' ')
+    .replace(/(?:number\s+of\s+days\s+to\s+deliver\s+is)\s*\d*\s*(?:days?|weeks?)?/gi, ' ')
+    .replace(/(?:within|in|by|deadline)\s*\d+\s*(?:days?|weeks?)\b/gi, ' ')
+    .replace(/\b\d+\s*(?:days?|weeks?)\s*(?:delivery|deliver|deadline)?\b/gi, ' ')
+    .replace(/\s+for\s+(?:my\s+|our\s+|the\s+)?(?:office|school|institute|company|campus|team)\b/gi, ' ');
 
-  const clauses = promptForItems.split(/(?:,|\band\b|&|;)/i);
+  const clauses = promptForItems.split(/(?:,|\band\b|&|;|\n)/i);
   let items = [];
 
+  const noiseWords = new Set([
+    'days', 'day', 'weeks', 'week', 'rupees', 'rs', 'inr', 'budget', 'my', 'is',
+    'total', 'overall', 'sum', 'undefined', 'delivery', 'deliver', 'delivered',
+    'shipping', 'office', 'units', 'unit', 'pcs', 'pc', 'pieces', 'piece', 'items', 'item'
+  ]);
+
   for (let clause of clauses) {
-    let cleanClause = clause.trim();
+    let cleanClause = clause.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
     if (!cleanClause) continue;
 
-    const qtyMatch = cleanClause.match(/(\d+)\s+([a-zA-Z\s\-]+)/i) || cleanClause.match(/([a-zA-Z\s\-]+)\s+(\d+)/i);
-    
+    // Strip leading filler verbs from the clause before matching quantity
+    cleanClause = cleanClause.replace(
+      /^(?:[a-z0-9\s]+?\s+needs\s+|i\s+need\s+|need\s+|i\s+want\s+|want\s+|buy\s+|looking\s+for\s+|purchase\s+|require\s+|order\s+|please\s+send\s+|please\s+get\s+)/i,
+      ''
+    ).trim();
+    if (!cleanClause) continue;
+
     let qty = 1;
     let rawName = cleanClause;
 
-    if (qtyMatch) {
-      if (/^\d+$/.test(qtyMatch[1])) {
-        qty = parseInt(qtyMatch[1], 10);
-        rawName = qtyMatch[2];
-      } else if (/^\d+$/.test(qtyMatch[2])) {
-        qty = parseInt(qtyMatch[2], 10);
-        rawName = qtyMatch[1];
-      }
+    // Pattern A: Leading quantity e.g. "50 Dell keyboards", "10 units of cloth", "30x pens", "10 A4 Paper"
+    const leadingQtyMatch = cleanClause.match(
+      /^(\d+)\s*x?\s*(?:(?:units?|pieces?|pcs?|items?|sets?|packs?|boxes?|nos?)\s+(?:of\s+)?)?(.+)$/i
+    );
+    // Pattern B: Trailing quantity e.g. "dell keyboard 40", "cloth 10 units"
+    const trailingQtyMatch = !leadingQtyMatch
+      ? cleanClause.match(/^(.+?)\s+(\d+)\s*x?\s*(?:units?|pieces?|pcs?|items?|sets?|packs?|boxes?|nos?)?$/i)
+      : null;
+
+    if (leadingQtyMatch) {
+      qty = parseInt(leadingQtyMatch[1], 10);
+      rawName = leadingQtyMatch[2];
+    } else if (trailingQtyMatch) {
+      rawName = trailingQtyMatch[1];
+      qty = parseInt(trailingQtyMatch[2], 10);
     }
 
     const finalName = cleanProductName(rawName);
     const lowerName = finalName.toLowerCase();
-    const isNoise = ['days', 'day', 'weeks', 'week', 'rupees', 'rs', 'inr', 'budget', 'my', 'is', 'total', 'overall', 'sum'].some(w => lowerName === w);
 
-    if (finalName.length >= 2 && !isNoise && finalName !== 'General Equipment') {
+    if (finalName.length >= 2 && !noiseWords.has(lowerName) && finalName !== 'General Equipment') {
       items.push({
         item_name: finalName,
         quantity: Math.max(1, qty),
@@ -98,10 +151,13 @@ function fallbackParsePrompt(promptText) {
   }
 
   if (items.length === 0) {
-    const finalName = cleanProductName(text);
-    items = [
-      { item_name: finalName || 'General Office Equipment', quantity: 1, estimated_budget: total_budget }
-    ];
+    const finalName = cleanProductName(promptForItems);
+    const lowerName = finalName.toLowerCase();
+    if (finalName && finalName !== 'General Equipment' && !noiseWords.has(lowerName)) {
+      items = [{ item_name: finalName, quantity: 1, estimated_budget: total_budget }];
+    } else {
+      items = [{ item_name: 'General Office Equipment', quantity: 1, estimated_budget: total_budget }];
+    }
   }
 
   const clarificationQuestions = [];
@@ -131,7 +187,7 @@ async function parseBuyerPrompt(promptText) {
   const geminiApiKey = process.env.GEMINI_API_KEY;
 
   if (geminiApiKey) {
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     for (const modelName of modelsToTry) {
       try {
         const genAI = new GoogleGenerativeAI(geminiApiKey);

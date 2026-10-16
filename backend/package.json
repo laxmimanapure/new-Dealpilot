@@ -6,7 +6,7 @@
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "seed": "node src/seed.js",
-    "test": "node src/test/engine.test.js"
+    "test": "node src/test/engine.test.js && node src/test/phase1AndPhase2Live.test.js && node src/test/catalogToNegotiationFlow.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

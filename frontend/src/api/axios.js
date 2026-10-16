@@ -1,12 +1,23 @@
 import axios from 'axios';
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
+const isLocalDev =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+  import.meta.env.VITE_USE_REMOTE_API !== 'true';
 
 // Base API URL for Axios requests
-export const baseURL = (rawApiUrl && (rawApiUrl.startsWith('http') || rawApiUrl.startsWith('/'))) ? rawApiUrl : '/api';
+export const baseURL = isLocalDev
+  ? '/api'
+  : (rawApiUrl && (rawApiUrl.startsWith('http') || rawApiUrl.startsWith('/')))
+  ? rawApiUrl
+  : '/api';
 
 // Helper function to resolve backend server host origin for static files/uploads
 export function getBackendHost() {
+  if (isLocalDev) {
+    return '';
+  }
   if (rawApiUrl && rawApiUrl.startsWith('http')) {
     try {
       const urlObj = new URL(rawApiUrl);

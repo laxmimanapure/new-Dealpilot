@@ -132,7 +132,7 @@ export default function OrdersPage({ onOpenAudit }) {
                     </div>
                     <div className="text-[#5A6588]">
                       {ord.delivery_address.addressLine1}
-                      {ord.delivery_address.addressLine2 ? `, ${ord.delivery_address.addressLine2}` : ''}, {ord.delivery_address.city}, {ord.delivery_address.state} - {ord.delivery_address.pincode}
+                      {ord.delivery_address.addressLine2 ? `, ${ord.delivery_address.addressLine2}` : ''}, {ord.delivery_address.city}, {ord.delivery_address.state} - {ord.delivery_address.pinCode || ord.delivery_address.pincode}
                     </div>
                     {ord.delivery_address.deliveryInstructions && (
                       <div className="text-[11px] text-[#7668D8] italic">

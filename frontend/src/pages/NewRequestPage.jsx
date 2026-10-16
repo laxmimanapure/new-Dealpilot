@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { 
   Sparkles, 
@@ -19,8 +19,24 @@ import {
 } from 'lucide-react';
 
 export default function NewRequestPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const initialProduct = location.state?.selectedProduct || null;
+  const initialMoq = initialProduct ? Math.max(1, Number(initialProduct.moq) || 1) : 1;
+  const initialUnitPrice = initialProduct ? Number(initialProduct.price || initialProduct.list_price || 1000) : 1000;
+  const initialSuggestedBudget = initialProduct
+    ? Math.max(initialUnitPrice * initialMoq, 1000)
+    : 100000;
+  const initialDeadline = initialProduct
+    ? Math.max(1, Number(initialProduct.standardLeadTimeDays || initialProduct.standard_lead_time_days) || 7)
+    : 7;
+
   const [promptText, setPromptText] = useState(
-    'I need 50 Dell keyboards, 20 wireless mice and 10 monitors for my office. My total budget is ₹1,00,000 and I need delivery within 7 days.'
+    location.state?.prefilledPrompt ||
+    (initialProduct
+      ? `I need ${initialMoq} units of ${initialProduct.name}`
+      : 'I need 50 Dell keyboards, 20 wireless mice and 10 monitors for my office. My total budget is ₹1,00,000 and I need delivery within 7 days.')
   );
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -28,25 +44,152 @@ export default function NewRequestPage() {
   const [error, setError] = useState('');
   
   // AI Analyzed & Editable Form State
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [items, setItems] = useState([]);
-  const [totalBudget, setTotalBudget] = useState(100000);
-  const [deadlineDays, setDeadlineDays] = useState(7);
+  const [analysisResult, setAnalysisResult] = useState(() => {
+    if (!initialProduct) return null;
+    const prodId = initialProduct.productId || initialProduct.id || initialProduct._id;
+    return {
+      analysis: {
+        parsed_summary: `Selected catalog product "${initialProduct.name}" (${initialMoq} ${initialProduct.unit || 'units'}). Adjust quantity and target budget below.`,
+        items: [
+          {
+            productId: prodId,
+            sellerId: initialProduct.sellerId || initialProduct.seller_id || null,
+            category: initialProduct.category || null,
+            item_name: initialProduct.name,
+            quantity: initialMoq,
+            moq: initialMoq
+          }
+        ],
+        total_budget: initialSuggestedBudget,
+        deadline_days: initialDeadline,
+        clarification_questions: []
+      },
+      dbMatches: {
+        products: [
+          {
+            id: prodId,
+            _id: prodId,
+            name: initialProduct.name,
+            category: initialProduct.category,
+            price: initialUnitPrice,
+            stock: initialProduct.stock ?? 100,
+            moq: initialMoq
+          }
+        ],
+        suppliers: initialProduct.supplierName
+          ? [
+              {
+                id: initialProduct.sellerId || initialProduct.seller_id || prodId,
+                company_name: initialProduct.supplierName,
+                contact_name: initialProduct.supplierName
+              }
+            ]
+          : []
+      },
+      webResults: [],
+      feasibility: { isFeasible: true }
+    };
+  });
 
-  const navigate = useNavigate();
+  const [items, setItems] = useState(() => {
+    if (!initialProduct) return [];
+    const prodId = initialProduct.productId || initialProduct.id || initialProduct._id;
+    return [
+      {
+        productId: prodId,
+        sellerId: initialProduct.sellerId || initialProduct.seller_id || null,
+        category: initialProduct.category || null,
+        originalProductName: initialProduct.name,
+        item_name: initialProduct.name,
+        quantity: initialMoq,
+        moq: initialMoq,
+        stock: initialProduct.stock
+      }
+    ];
+  });
+  const [totalBudget, setTotalBudget] = useState(initialSuggestedBudget);
+  const [deadlineDays, setDeadlineDays] = useState(initialDeadline);
+
+  useEffect(() => {
+    const selProd = location.state?.selectedProduct;
+    const prefilled = location.state?.prefilledPrompt;
+    if (selProd) {
+      const prodId = selProd.productId || selProd.id || selProd._id;
+      const moq = Math.max(1, Number(selProd.moq) || 1);
+      const unitPrice = Number(selProd.price || selProd.list_price || 1000);
+      const budget = Math.max(unitPrice * moq, 1000);
+      const leadDays = Math.max(1, Number(selProd.standardLeadTimeDays || selProd.standard_lead_time_days) || 7);
+      const prompt = prefilled || `I need ${moq} units of ${selProd.name}`;
+
+      setPromptText(prompt);
+      setItems([
+        {
+          productId: prodId,
+          sellerId: selProd.sellerId || selProd.seller_id || null,
+          category: selProd.category || null,
+          originalProductName: selProd.name,
+          item_name: selProd.name,
+          quantity: moq,
+          moq,
+          stock: selProd.stock
+        }
+      ]);
+      setTotalBudget(budget);
+      setDeadlineDays(leadDays);
+
+      // Enrich market research & matched suppliers in background while preserving selected catalog item
+      api.post('/ai/analyze-procurement', { promptText: prompt })
+        .then(res => {
+          if (res.data) {
+            setAnalysisResult(prev => ({
+              ...res.data,
+              analysis: {
+                ...(res.data.analysis || {}),
+                parsed_summary: `Selected catalog product "${selProd.name}". Review quantity and target budget before confirming.`
+              }
+            }));
+          }
+        })
+        .catch(() => {});
+    } else if (prefilled) {
+      setPromptText(prefilled);
+      api.post('/ai/analyze-procurement', { promptText: prefilled })
+        .then(res => {
+          setAnalysisResult(res.data);
+          const parsedItems = (res.data.analysis?.items || []).map(i => ({
+            productId: i.productId || null,
+            sellerId: i.sellerId || null,
+            category: i.category || null,
+            originalProductName: i.item_name || '',
+            item_name: i.item_name || '',
+            quantity: i.quantity && !isNaN(Number(i.quantity)) && Number(i.quantity) > 0 ? parseInt(i.quantity, 10) : 1,
+            moq: i.moq || null
+          }));
+          setItems(parsedItems.length > 0 ? parsedItems : [{ item_name: '', quantity: 1 }]);
+          setTotalBudget(res.data.analysis?.total_budget || 100000);
+          setDeadlineDays(res.data.analysis?.deadline_days || 7);
+        })
+        .catch(() => {});
+    }
+  }, [location.state]);
 
   // Helper: Find DB product MOQ for a line item
-  const getMatchedProductMoq = (itemName) => {
+  const getMatchedProductMoq = (item) => {
+    if (!item) return null;
+    if (typeof item === 'object' && item.moq) return item.moq;
+    const itemName = typeof item === 'string' ? item : item.item_name;
     if (!itemName || !analysisResult?.dbMatches?.products) return null;
     const clean = itemName.trim().toLowerCase();
     if (!clean) return null;
     const match = analysisResult.dbMatches.products.find(p => 
-      p.name?.toLowerCase().includes(clean) || clean.includes(p.name?.toLowerCase() || '')
+      (typeof item === 'object' && item.productId && String(p.id || p._id) === String(item.productId)) ||
+      p.name?.toLowerCase().includes(clean) ||
+      clean.includes(p.name?.toLowerCase() || '')
     );
     return match ? (match.moq || 1) : null;
   };
 
-  // Helper: Get quantity validation error for an item
+  // Helper: Get blocking quantity validation error for an item
   const getItemQuantityError = (item) => {
     const rawQty = item.quantity;
     if (rawQty === '' || rawQty === null || rawQty === undefined) {
@@ -59,9 +202,16 @@ export default function NewRequestPage() {
     if (!Number.isInteger(numQty)) {
       return 'Required Quantity must be a whole integer (no decimals).';
     }
-    const moq = getMatchedProductMoq(item.item_name);
+    return null;
+  };
+
+  // Helper: Get non-blocking MOQ advisory warning
+  const getItemMoqWarning = (item) => {
+    const numQty = Number(item.quantity);
+    if (isNaN(numQty) || numQty <= 0) return null;
+    const moq = getMatchedProductMoq(item);
     if (moq && numQty < moq) {
-      return `Quantity (${numQty} units) is below seller Minimum Order Quantity (MOQ: ${moq} units).`;
+      return `Quantity (${numQty} units) is below seller Minimum Order Quantity (MOQ: ${moq} units). Seller policy may reject this offer.`;
     }
     return null;
   };
@@ -79,8 +229,13 @@ export default function NewRequestPage() {
       setAnalysisResult(res.data);
 
       const parsedItems = (res.data.analysis?.items || []).map(i => ({
+        productId: i.productId || null,
+        sellerId: i.sellerId || null,
+        category: i.category || null,
+        originalProductName: i.item_name || '',
         item_name: i.item_name || '',
-        quantity: i.quantity && !isNaN(Number(i.quantity)) && Number(i.quantity) > 0 ? parseInt(i.quantity, 10) : 1
+        quantity: i.quantity && !isNaN(Number(i.quantity)) && Number(i.quantity) > 0 ? parseInt(i.quantity, 10) : 1,
+        moq: i.moq || null
       }));
 
       setItems(parsedItems.length > 0 ? parsedItems : [{ item_name: '', quantity: 1 }]);
@@ -97,13 +252,24 @@ export default function NewRequestPage() {
   // Handlers for editable line items
   const handleItemNameChange = (index, value) => {
     const updated = [...items];
-    updated[index].item_name = value;
+    const current = updated[index];
+    const nameChangedFromCatalog =
+      current.originalProductName &&
+      value.trim().toLowerCase() !== current.originalProductName.trim().toLowerCase();
+
+    updated[index] = {
+      ...current,
+      item_name: value,
+      productId: nameChangedFromCatalog ? null : current.productId,
+      sellerId: nameChangedFromCatalog ? null : current.sellerId,
+      moq: nameChangedFromCatalog ? null : current.moq
+    };
     setItems(updated);
   };
 
   const handleQuantityChange = (index, value) => {
     const updated = [...items];
-    updated[index].quantity = value;
+    updated[index] = { ...updated[index], quantity: value };
     setItems(updated);
   };
 
@@ -133,10 +299,14 @@ export default function NewRequestPage() {
         errors.push(`Product "${name || '#' + (idx + 1)}": ${qErr}`);
       }
 
-      return {
+      const payloadItem = {
         item_name: name,
         quantity: parseInt(item.quantity, 10)
       };
+      if (item.productId) payloadItem.productId = item.productId;
+      if (item.sellerId) payloadItem.sellerId = item.sellerId;
+      if (item.category) payloadItem.category = item.category;
+      return payloadItem;
     });
 
     if (errors.length > 0) {
@@ -145,9 +315,14 @@ export default function NewRequestPage() {
       return;
     }
 
+    const effectivePrompt =
+      formattedItems.length === 1 && initialProduct && formattedItems[0].item_name === initialProduct.name
+        ? `I need ${formattedItems[0].quantity} units of ${formattedItems[0].item_name}`
+        : promptText;
+
     try {
       const res = await api.post('/buyer/requests', {
-        promptText,
+        promptText: effectivePrompt,
         total_budget: Number(totalBudget) || 100000,
         deadline_days: Number(deadlineDays) || 7,
         items: formattedItems
@@ -271,7 +446,8 @@ export default function NewRequestPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map((item, idx) => {
                   const qErr = getItemQuantityError(item);
-                  const moqVal = getMatchedProductMoq(item.item_name);
+                  const moqWarn = getItemMoqWarning(item);
+                  const moqVal = getMatchedProductMoq(item);
 
                   return (
                     <div key={idx} className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] space-y-3 relative transition-all hover:border-[#7668D8]/40">
@@ -331,6 +507,8 @@ export default function NewRequestPage() {
                             className={`w-full bg-white border rounded-xl pl-3.5 pr-16 py-2 text-xs sm:text-sm font-extrabold font-mono text-[#20284F] focus:outline-none focus:ring-2 transition-all ${
                               qErr
                                 ? 'border-rose-300 bg-rose-50/50 focus:border-rose-500 focus:ring-rose-200'
+                                : moqWarn
+                                ? 'border-amber-300 bg-amber-50/40 focus:border-amber-500 focus:ring-amber-200'
                                 : 'border-[#EAE3D9] focus:border-[#7668D8] focus:ring-[#7668D8]/20 hover:border-[#7668D8]/50'
                             }`}
                           />
@@ -343,6 +521,12 @@ export default function NewRequestPage() {
                           <div className="text-[11px] font-extrabold text-rose-600 flex items-center space-x-1 pt-0.5">
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                             <span>{qErr}</span>
+                          </div>
+                        )}
+                        {!qErr && moqWarn && (
+                          <div className="text-[11px] font-extrabold text-amber-700 flex items-center space-x-1 pt-0.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{moqWarn}</span>
                           </div>
                         )}
                       </div>

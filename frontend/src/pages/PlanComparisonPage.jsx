@@ -13,6 +13,8 @@ export default function PlanComparisonPage({ onOpenAudit }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
+  const [noMatchReason, setNoMatchReason] = useState(null);
 
   // Checkout state
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -39,18 +41,22 @@ export default function PlanComparisonPage({ onOpenAudit }) {
   }, [id]);
 
   const fetchPlansData = async () => {
+    setLoading(true);
+    setFetchError(null);
     try {
       const res = await api.get(`/buyer/requests/${id}/plans`);
       setRequirement(res.data.requirement);
       const fetchedPlans = res.data.plans || [];
       setPlans(fetchedPlans);
+      setNoMatchReason(res.data.no_match_reason || null);
       
       if (fetchedPlans.length > 0) {
-        const best = fetchedPlans.find(p => p.is_best_deal) || fetchedPlans[0];
-        setSelectedPlan(best);
+        const bestValid = fetchedPlans.find(p => p.status === 'VALID' && p.is_best_deal) || fetchedPlans.find(p => p.status === 'VALID') || null;
+        setSelectedPlan(bestValid);
       }
     } catch (err) {
       console.error('Failed to load plan comparison:', err);
+      setFetchError(err.response?.data?.error || err.message || 'Failed to load procurement deals.');
     } finally {
       setLoading(false);
     }
@@ -79,6 +85,7 @@ export default function PlanComparisonPage({ onOpenAudit }) {
   };
 
   const handleConfirmPlan = (plan) => {
+    if (!plan || plan.status !== 'VALID') return;
     setSelectedPlan(plan);
     setIsCheckoutOpen(true);
     setPaymentResult(null);
@@ -91,15 +98,26 @@ export default function PlanComparisonPage({ onOpenAudit }) {
     }
   };
 
-  const onlineDiscountPercent = selectedPlan?.discount_breakdown?.advance_pay_discount?.percent || 0;
-  const negotiatedBase = selectedPlan?.negotiated_amount || 0;
-  const onlineDiscountAmount = (paymentMethod === 'ONLINE' && onlineDiscountPercent > 0)
+  const advanceAlreadyApplied = Boolean(selectedPlan?.discount_breakdown?.advance_pay_discount?.applied);
+  const configuredOnlineDiscountPercent = Number(
+    selectedPlan?.discount_breakdown?.advance_pay_discount?.configured_percent ??
+    selectedPlan?.discount_breakdown?.advance_pay_discount?.percent ??
+    0
+  );
+  const onlineDiscountPercent = advanceAlreadyApplied ? 0 : configuredOnlineDiscountPercent;
+  const negotiatedBase = Number(selectedPlan?.negotiated_amount || 0);
+  const minAllowedPrice = Number(selectedPlan?.min_allowed_price || 0);
+  const rawOnlineDiscountAmount = (paymentMethod === 'ONLINE' && onlineDiscountPercent > 0)
     ? Math.round((negotiatedBase * (onlineDiscountPercent / 100)) * 100) / 100
     : 0;
+  const maxPermittedExtraDiscount = minAllowedPrice > 0
+    ? Math.max(0, Math.round((negotiatedBase - minAllowedPrice) * 100) / 100)
+    : rawOnlineDiscountAmount;
+  const onlineDiscountAmount = Math.min(rawOnlineDiscountAmount, maxPermittedExtraDiscount);
   const finalPayableAmount = Math.round((negotiatedBase - onlineDiscountAmount) * 100) / 100;
 
   const handleProcessPayment = async () => {
-    if (!selectedPlan || !requirement) return;
+    if (!selectedPlan || selectedPlan.status !== 'VALID' || !requirement) return;
     if (!validateAddressForm()) return;
 
     setIsProcessingPayment(true);
@@ -213,7 +231,7 @@ export default function PlanComparisonPage({ onOpenAudit }) {
     } catch (err) {
       setPaymentResult({
         success: false,
-        message: err.response?.data?.message || err.message || 'Payment processing failed',
+        message: err.response?.data?.error || err.response?.data?.message || err.message || 'Payment processing failed',
         can_retry: true
       });
       setIsProcessingPayment(false);
@@ -224,7 +242,7 @@ export default function PlanComparisonPage({ onOpenAudit }) {
     return <div className="p-16 text-center text-xs text-[#5A6588] font-bold">Loading ranked procurement deals...</div>;
   }
 
-  const bestDeal = plans.find(p => p.is_best_deal) || plans[0];
+  const bestDeal = plans.find(p => p.status === 'VALID' && p.is_best_deal) || null;
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-[#20284F] bg-[#FBF8F3]">
@@ -260,150 +278,217 @@ export default function PlanComparisonPage({ onOpenAudit }) {
       </div>
 
       {/* Offers Grid */}
-      {plans.length === 0 ? (
+      {fetchError ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-12 text-center space-y-4">
+          <AlertOctagon className="w-12 h-12 text-rose-600 mx-auto" />
+          <h3 className="text-base font-extrabold text-rose-900">Unable to Load Procurement Deals</h3>
+          <p className="text-xs text-rose-700 max-w-md mx-auto leading-relaxed">
+            {fetchError}
+          </p>
+          <button
+            type="button"
+            onClick={fetchPlansData}
+            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl transition-colors inline-flex items-center space-x-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Retry Loading Deals</span>
+          </button>
+        </div>
+      ) : plans.length === 0 ? (
         <div className="bg-white border border-[#EAE3D9] rounded-3xl p-12 text-center space-y-3">
           <AlertOctagon className="w-12 h-12 text-[#5A6588] mx-auto" />
           <h3 className="text-base font-extrabold text-[#20284F]">No Matched Seller Deals</h3>
           <p className="text-xs text-[#5A6588] max-w-md mx-auto leading-relaxed">
-            No active sellers in MongoDB could fulfill this requirement within stock or minimum price floor rules.
+            {noMatchReason || 'No active sellers in MongoDB could fulfill this requirement within stock or minimum price floor rules.'}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((plan, idx) => (
-            <div 
-              key={plan.offer_id || idx}
-              className={`rounded-3xl p-6 border transition-all flex flex-col justify-between space-y-5 relative overflow-hidden ${
-                plan.is_best_deal 
-                  ? 'bg-gradient-to-br from-[#FAF6F0] via-white to-[#FBF8F3] border-[#7668D8] shadow-md ring-2 ring-[#7668D8]/20' 
-                  : 'bg-white border-[#EAE3D9] shadow-xs hover:shadow-md'
-              }`}
-            >
-              {plan.is_best_deal && (
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white text-[10px] font-extrabold uppercase tracking-wider px-3.5 py-1 rounded-bl-xl shadow-2xs flex items-center space-x-1">
-                  <Award className="w-3.5 h-3.5 text-[#E88AAE]" />
-                  <span>BEST DEAL</span>
-                </div>
-              )}
+          {plans.map((plan, idx) => {
+            const isValidOffer = plan.status === 'VALID';
+            const isRejectedOffer = plan.status === 'REJECTED';
+            const isOverBudgetOffer = plan.status === 'OVER_BUDGET';
+            const showBestDealBadge = Boolean(isValidOffer && plan.is_best_deal);
+            const showFastestBadge = Boolean(isValidOffer && plan.is_fastest_delivery && !plan.is_best_deal);
 
-              <div className="space-y-4 pt-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider">Seller Partner</span>
-                    <h3 className="text-lg font-extrabold text-[#20284F]">{plan.seller_name}</h3>
-                  </div>
-                  <div className="px-3 py-1 bg-[#20284F] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1 shadow-2xs">
-                    <span className="text-[#E88AAE]">Total Order Qty:</span>
-                    <span>
-                      {plan.total_requested_units || (plan.items ? plan.items.reduce((acc, it) => acc + (it.quantity || 1), 0) : 1)} units
-                    </span>
-                  </div>
-                </div>
-
-                {/* Amount Hero */}
-                <div className="bg-[#FAF6F0] p-4 rounded-2xl border border-[#EAE3D9]">
-                  <div className="text-[11px] text-[#5A6588] font-bold">Negotiated Landed Amount</div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#20284F] font-mono tracking-tight">
-                    ₹{plan.negotiated_amount?.toLocaleString('en-IN')}
-                  </div>
-                  <div className="text-xs font-extrabold text-emerald-700 mt-1">
-                    Save ₹{plan.savings?.toLocaleString('en-IN')} off list price
-                  </div>
-                </div>
-
-                {/* Itemized Line Items & Quantity Breakdown */}
-                {plan.items && plan.items.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider">Itemized Quantity & Pricing Basis</div>
-                    <div className="space-y-2">
-                      {plan.items.map((item, iIdx) => {
-                        const qty = item.quantity || 1;
-                        const uList = item.unit_list_price || item.unitListPrice || (item.total_list_price ? Math.round((item.total_list_price / qty) * 100) / 100 : (item.totalListPrice ? Math.round((item.totalListPrice / qty) * 100) / 100 : 0));
-                        const tList = item.total_list_price || item.totalListPrice || Math.round((uList * qty) * 100) / 100;
-                        const discRatio = plan.original_amount > 0 ? (plan.negotiated_amount / plan.original_amount) : 1;
-                        const uNeg = item.unit_negotiated_price || Math.round((uList * discRatio) * 100) / 100;
-                        const tNeg = item.total_negotiated_price || Math.round((tList * discRatio) * 100) / 100;
-
-                        return (
-                          <div key={iIdx} className="p-3 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] space-y-1 text-xs">
-                            <div className="flex items-center justify-between font-extrabold text-[#20284F]">
-                              <span>{item.name}</span>
-                              <span className="px-2 py-0.5 rounded-full bg-[#7668D8]/10 text-[#7668D8] text-[10px]">
-                                Requested Qty: {qty} units
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-[#5A6588]">
-                              <span>Unit List / Neg:</span>
-                              <span className="font-mono font-semibold">
-                                ₹{uList.toLocaleString('en-IN')} ➔ <strong className="text-emerald-700">₹{uNeg.toLocaleString('en-IN')}</strong> / unit
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-[#5A6588] pt-0.5 border-t border-[#EAE3D9]/60">
-                              <span>Item Package Total:</span>
-                              <span className="font-mono font-bold text-[#20284F]">
-                                ₹{tList.toLocaleString('en-IN')} ➔ <strong className="text-[#7668D8]">₹{tNeg.toLocaleString('en-IN')}</strong>
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+            return (
+              <div 
+                key={plan.offer_id || idx}
+                className={`rounded-3xl p-6 border transition-all flex flex-col justify-between space-y-5 relative overflow-hidden ${
+                  showBestDealBadge
+                    ? 'bg-gradient-to-br from-[#FAF6F0] via-white to-[#FBF8F3] border-[#7668D8] shadow-md ring-2 ring-[#7668D8]/20'
+                    : isRejectedOffer
+                    ? 'bg-rose-50/20 border-rose-200/80 shadow-xs'
+                    : 'bg-white border-[#EAE3D9] shadow-xs hover:shadow-md'
+                }`}
+              >
+                {showBestDealBadge && (
+                  <div className="absolute top-0 right-0 bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] text-white text-[10px] font-extrabold uppercase tracking-wider px-3.5 py-1 rounded-bl-xl shadow-2xs flex items-center space-x-1">
+                    <Award className="w-3.5 h-3.5 text-[#E88AAE]" />
+                    <span>{plan.is_fastest_delivery ? 'BEST DEAL • LOWEST COST & FASTEST' : 'BEST DEAL • LOWEST COST'}</span>
                   </div>
                 )}
 
-                {/* Items & Status */}
-                <div className="space-y-2 text-xs text-[#5A6588] bg-white p-3.5 rounded-2xl border border-[#EAE3D9]">
-                  <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
-                    <span className="text-[#5A6588] font-bold">List Price Total:</span>
-                    <span className="font-mono font-extrabold text-[#20284F]">₹{plan.original_amount?.toLocaleString('en-IN')}</span>
+                {showFastestBadge && (
+                  <div className="absolute top-0 right-0 bg-emerald-700 text-white text-[10px] font-extrabold uppercase tracking-wider px-3.5 py-1 rounded-bl-xl shadow-2xs flex items-center space-x-1">
+                    <Truck className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>FASTEST DELIVERY</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
-                    <span className="text-[#5A6588] font-bold">Lead Time:</span>
-                    <span className="font-extrabold text-[#20284F]">{plan.lead_time_days} Days</span>
+                )}
+
+                <div className="space-y-4 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider">Seller Partner</span>
+                      <h3 className="text-lg font-extrabold text-[#20284F]">{plan.seller_name}</h3>
+                    </div>
+                    <div className="px-3 py-1 bg-[#20284F] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1 shadow-2xs">
+                      <span className="text-[#E88AAE]">Total Order Qty:</span>
+                      <span>
+                        {plan.total_requested_units || (plan.items ? plan.items.reduce((acc, it) => acc + (it.quantity || 1), 0) : 1)} units
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-[#5A6588] font-bold">Budget Status:</span>
-                    <span className={`font-extrabold ${plan.status === 'VALID' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                      {plan.status === 'VALID' ? 'Within Budget' : 'Over Budget'}
-                    </span>
+
+                  {/* Amount Hero */}
+                  <div className="bg-[#FAF6F0] p-4 rounded-2xl border border-[#EAE3D9]">
+                    <div className="text-[11px] text-[#5A6588] font-bold">Negotiated Offer Amount</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-[#20284F] font-mono tracking-tight">
+                      ₹{plan.negotiated_amount?.toLocaleString('en-IN')}
+                    </div>
+                    {plan.landed_cost !== undefined && plan.landed_cost !== plan.negotiated_amount && (
+                      <div className="text-[11px] font-bold text-[#5A6588] mt-0.5">
+                        Evaluated Landed Cost: <span className="font-mono font-extrabold text-[#20284F]">₹{plan.landed_cost?.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    <div className="text-xs font-extrabold text-emerald-700 mt-1">
+                      {plan.savings > 0
+                        ? `Save ₹${plan.savings?.toLocaleString('en-IN')} off list price`
+                        : '₹0 discount applied'}
+                    </div>
                   </div>
-                  {plan.rejection_reason && (
-                    <div className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 mt-1">
-                      {plan.rejection_reason}
+
+                  {/* Itemized Line Items & Quantity Breakdown */}
+                  {plan.items && plan.items.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-extrabold text-[#7668D8] uppercase tracking-wider">Itemized Quantity & Pricing Basis</div>
+                      <div className="space-y-2">
+                        {plan.items.map((item, iIdx) => {
+                          const qty = item.quantity || 1;
+                          const uList = item.unit_list_price ?? item.unitListPrice ?? (item.total_list_price ? Math.round((item.total_list_price / qty) * 100) / 100 : (item.totalListPrice ? Math.round((item.totalListPrice / qty) * 100) / 100 : 0));
+                          const tList = item.total_list_price ?? item.totalListPrice ?? Math.round((uList * qty) * 100) / 100;
+                          const discRatio = plan.original_amount > 0 ? (plan.negotiated_amount / plan.original_amount) : 1;
+                          const tNeg = item.total_negotiated_price ?? Math.round((tList * discRatio) * 100) / 100;
+                          const uNeg = item.unit_negotiated_price ?? Math.round((tNeg / qty) * 100) / 100;
+
+                          return (
+                            <div key={iIdx} className="p-3 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] space-y-1 text-xs">
+                              <div className="flex items-center justify-between font-extrabold text-[#20284F]">
+                                <span>{item.name}</span>
+                                <span className="px-2 py-0.5 rounded-full bg-[#7668D8]/10 text-[#7668D8] text-[10px]">
+                                  Requested Qty: {qty} units
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-[#5A6588]">
+                                <span>Unit List / Neg:</span>
+                                <span className="font-mono font-semibold">
+                                  ₹{uList.toLocaleString('en-IN')} ➔ <strong className="text-emerald-700">₹{uNeg.toLocaleString('en-IN')}</strong> / unit
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-[#5A6588] pt-0.5 border-t border-[#EAE3D9]/60">
+                                <span>Item Package Total:</span>
+                                <span className="font-mono font-bold text-[#20284F]">
+                                  ₹{tList.toLocaleString('en-IN')} ➔ <strong className="text-[#7668D8]">₹{tNeg.toLocaleString('en-IN')}</strong>
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Items & Status */}
+                  <div className="space-y-2 text-xs text-[#5A6588] bg-white p-3.5 rounded-2xl border border-[#EAE3D9]">
+                    <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
+                      <span className="text-[#5A6588] font-bold">List Price Total:</span>
+                      <span className="font-mono font-extrabold text-[#20284F]">₹{plan.original_amount?.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-[#EAE3D9]">
+                      <span className="text-[#5A6588] font-bold">Lead Time:</span>
+                      <span className="font-extrabold text-[#20284F]">{plan.lead_time_days} Days</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-[#5A6588] font-bold">Offer Status:</span>
+                      <span
+                        className={`font-extrabold ${
+                          isValidOffer
+                            ? 'text-emerald-700'
+                            : isOverBudgetOffer
+                            ? 'text-amber-700'
+                            : 'text-rose-600'
+                        }`}
+                      >
+                        {isValidOffer
+                          ? 'Within Budget (Valid)'
+                          : isOverBudgetOffer
+                          ? 'Over Budget'
+                          : 'Rejected (Policy / MOQ / Stock)'}
+                      </span>
+                    </div>
+                    {plan.rejection_reason && (
+                      <div
+                        className={`text-[11px] p-2 rounded-xl border mt-1 ${
+                          isRejectedOffer
+                            ? 'text-rose-800 bg-rose-50 border-rose-200'
+                            : 'text-amber-800 bg-amber-50 border-amber-200'
+                        }`}
+                      >
+                        {plan.rejection_reason}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Why This Deal Explanation */}
+                  {isValidOffer && plan.why_this_deal && plan.why_this_deal.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] font-extrabold text-[#20284F]">Why this offer was selected:</div>
+                      <ul className="space-y-1">
+                        {plan.why_this_deal.map((reason, rIdx) => (
+                          <li key={rIdx} className="text-[11px] text-[#5A6588] flex items-start space-x-1.5 font-normal">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>
 
-                {/* Why This Deal Explanation */}
-                {plan.why_this_deal && plan.why_this_deal.length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    <div className="text-[11px] font-extrabold text-[#20284F]">Why this offer was selected:</div>
-                    <ul className="space-y-1">
-                      {plan.why_this_deal.map((reason, rIdx) => (
-                        <li key={rIdx} className="text-[11px] text-[#5A6588] flex items-start space-x-1.5 font-normal">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                          <span>{reason}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* Action Button */}
+                <button
+                  onClick={() => handleConfirmPlan(plan)}
+                  disabled={!isValidOffer}
+                  className={`w-full py-3 text-xs font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 ${
+                    !isValidOffer
+                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                      : showBestDealBadge
+                      ? 'bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white shadow-[#20284F]/10'
+                      : 'bg-[#20284F] hover:bg-[#352F6E] text-white'
+                  }`}
+                >
+                  <CreditCard className={`w-4 h-4 ${isValidOffer ? 'text-[#E88AAE]' : 'text-slate-400'}`} />
+                  <span>
+                    {isValidOffer
+                      ? 'Confirm & Checkout Deal'
+                      : isOverBudgetOffer
+                      ? 'Unavailable — Over Target Budget'
+                      : 'Rejected — Cannot Purchase'}
+                  </span>
+                </button>
               </div>
-
-              {/* Action Button */}
-              <button
-                onClick={() => handleConfirmPlan(plan)}
-                className={`w-full py-3 text-xs font-extrabold rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 ${
-                  plan.is_best_deal
-                    ? 'bg-gradient-to-r from-[#20284F] via-[#352F6E] to-[#7668D8] hover:from-[#7668D8] hover:to-[#E88AAE] text-white shadow-[#20284F]/10'
-                    : 'bg-[#20284F] hover:bg-[#352F6E] text-white'
-                }`}
-              >
-                <CreditCard className="w-4 h-4 text-[#E88AAE]" />
-                <span>Confirm & Checkout Deal</span>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -582,13 +667,17 @@ export default function PlanComparisonPage({ onOpenAudit }) {
                       <p className="text-[11px] text-[#5A6588] leading-tight">
                         Pay via Razorpay (UPI, Cards, NetBanking).
                       </p>
-                      {onlineDiscountPercent > 0 ? (
+                      {advanceAlreadyApplied ? (
+                        <div className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                          ✓ Advance Payment Discount ({selectedPlan?.discount_breakdown?.advance_pay_discount?.percent}%) already included in Negotiated Price
+                        </div>
+                      ) : onlineDiscountAmount > 0 ? (
                         <div className="text-[10px] font-extrabold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block">
-                          ✓ Qualifies for {onlineDiscountPercent}% Online Payment Discount
+                          ✓ Qualifies for {onlineDiscountPercent}% Online Payment Discount (-₹{onlineDiscountAmount.toLocaleString('en-IN')})
                         </div>
                       ) : (
                         <div className="text-[10px] text-[#5A6588] italic">
-                          No active online payment discount policy for this item.
+                          No additional online payment discount applicable.
                         </div>
                       )}
                     </div>

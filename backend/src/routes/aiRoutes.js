@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { parseBuyerPrompt } = require('../services/aiService');
 const { searchWebProducts } = require('../services/webSearchService');
+const { matchProductToItem } = require('../services/negotiationEngine');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
@@ -35,24 +36,23 @@ router.post('/analyze-procurement', async (req, res) => {
     // 2. Deterministic Backend Budget Check & Feasibility Validation
     const reqItems = analysis.items || [];
     let calculatedEstTotal = 0;
-    
-    // 3. Search Real MongoDB Database for matching DealPilot products & suppliers
-    const itemNames = reqItems.map(i => i.item_name.toLowerCase());
-    const regexQueries = itemNames.map(name => new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
 
+    // 3. Search Real MongoDB Database for matching DealPilot products & suppliers using matchProductToItem
     let matchedProducts = [];
-    if (regexQueries.length > 0) {
-      matchedProducts = await Product.find({
-        active: true,
-        $or: regexQueries.map(r => ({ name: r }))
-      })
-      .populate('sellerId', 'name companyName email')
-      .lean();
+    if (reqItems.length > 0) {
+      const allActiveProducts = await Product.find({ active: { $ne: false } })
+        .populate('sellerId', 'name companyName email')
+        .lean();
+
+      matchedProducts = allActiveProducts.filter(p =>
+        reqItems.some(item => matchProductToItem(item.item_name, p).matches)
+      );
     }
 
     // Sanitize DB products (exclude costPrice, minimumPrice, etc.)
     const sanitizedDbProducts = matchedProducts.map(p => ({
       id: p._id,
+      _id: p._id,
       name: p.name,
       category: p.category,
       price: p.price,
@@ -70,8 +70,8 @@ router.post('/analyze-procurement', async (req, res) => {
       _id: { $in: sellerIds },
       role: 'seller'
     })
-    .select('name companyName email createdAt')
-    .lean();
+      .select('name companyName email createdAt')
+      .lean();
 
     const sanitizedDbSuppliers = matchedSuppliers.map(s => ({
       id: s._id,
@@ -87,9 +87,18 @@ router.post('/analyze-procurement', async (req, res) => {
       webResults = await searchWebProducts(primaryItem);
     }
 
-    // 5. Backend Feasibility Check
+    // 5. Backend Feasibility Check & Product ID Enrichment
     for (const item of reqItems) {
-      const match = sanitizedDbProducts.find(p => p.name.toLowerCase().includes(item.item_name.toLowerCase()));
+      const bestCandidates = sanitizedDbProducts
+        .map(p => ({ p, res: matchProductToItem(item.item_name, p) }))
+        .filter(m => m.res.matches)
+        .sort((a, b) => b.res.score - a.res.score);
+      const match = bestCandidates[0]?.p;
+      if (match) {
+        item.productId = match.id;
+        item.category = match.category;
+        item.moq = match.moq || 1;
+      }
       const unitPrice = match ? match.price : 1500;
       calculatedEstTotal += unitPrice * item.quantity;
     }

@@ -2,9 +2,20 @@ const mongoose = require('mongoose');
 
 const requirementItemSchema = new mongoose.Schema(
   {
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product',
+      default: null
+    },
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
     item_name: { type: String, required: true },
+    category: { type: String, default: null },
     quantity: { type: Number, required: true, min: 1 },
-    estimated_budget: { type: Number }
+    estimated_budget: { type: Number, default: null }
   },
   { _id: false }
 );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import ProductImage from '../components/ProductImage';
 import { 
@@ -21,14 +21,24 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function BuyerCatalogPage() {
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(location.state?.searchQuery || '');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(location.state?.selectedProduct || null);
   const navigate = useNavigate();
 
   const categories = ['All', 'Peripherals', 'Audio', 'Furniture', 'Stationery', 'Computers'];
+
+  useEffect(() => {
+    if (location.state?.selectedProduct) {
+      setSelectedProduct(location.state.selectedProduct);
+    }
+    if (location.state?.searchQuery !== undefined) {
+      setSearchQuery(location.state.searchQuery);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     fetchCatalog();
@@ -51,10 +61,28 @@ export default function BuyerCatalogPage() {
   };
 
   const handleCreateRequestForProduct = (product) => {
+    if (!product) return;
+    const productId = product.id || product._id;
+    const defaultQty = Math.max(1, Number(product.moq) || 1);
+    const unitPrice = Number(product.list_price || product.price || 1000);
     setSelectedProduct(null);
     navigate('/buyer/new-request', { 
       state: { 
-        prefilledPrompt: `I need ${product.moq || 5} units of ${product.name} (${product.category})`
+        selectedProduct: {
+          productId,
+          id: productId,
+          _id: productId,
+          sellerId: product.seller_id || product.sellerId,
+          name: product.name,
+          category: product.category,
+          price: unitPrice,
+          moq: defaultQty,
+          stock: product.stock,
+          unit: product.unit || 'units',
+          standardLeadTimeDays: product.standard_lead_time_days || product.standardLeadTimeDays || 7,
+          supplierName: product.supplier_name || 'Verified Supplier'
+        },
+        prefilledPrompt: `I need ${defaultQty} units of ${product.name}`
       } 
     });
   };

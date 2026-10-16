@@ -231,7 +231,13 @@ export default function Navbar({ onOpenAudit }) {
                               onClick={() => {
                                 setSearchDropdownOpen(false);
                                 setSearchQuery('');
-                                navigate(user?.role === 'buyer' ? '/buyer/catalog' : '/seller/catalog');
+                                if (user?.role === 'buyer') {
+                                  navigate('/buyer/catalog', {
+                                    state: { selectedProduct: p, searchQuery: p.name }
+                                  });
+                                } else {
+                                  navigate('/seller/catalog');
+                                }
                               }}
                               className="p-2.5 rounded-xl hover:bg-[#FAF6F0] transition-colors flex items-center justify-between cursor-pointer group"
                             >

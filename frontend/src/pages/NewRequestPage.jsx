@@ -36,12 +36,13 @@ export default function NewRequestPage() {
     location.state?.prefilledPrompt ||
     (initialProduct
       ? `I need ${initialMoq} units of ${initialProduct.name}`
-      : 'I need 50 Dell keyboards, 20 wireless mice and 10 monitors for my office. My total budget is ₹1,00,000 and I need delivery within 7 days.')
+      : 'I need 50 Dell keyboards, 20 wireless mice and 10 monitors for my office. My total budget is ₹5,00,000 and I need delivery within 7 days.')
   );
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [budgetEditedByUser, setBudgetEditedByUser] = useState(false);
   
   // AI Analyzed & Editable Form State
   const [analysisResult, setAnalysisResult] = useState(() => {
@@ -57,7 +58,8 @@ export default function NewRequestPage() {
             category: initialProduct.category || null,
             item_name: initialProduct.name,
             quantity: initialMoq,
-            moq: initialMoq
+            moq: initialMoq,
+            unitPrice: initialUnitPrice
           }
         ],
         total_budget: initialSuggestedBudget,
@@ -73,7 +75,8 @@ export default function NewRequestPage() {
             category: initialProduct.category,
             price: initialUnitPrice,
             stock: initialProduct.stock ?? 100,
-            moq: initialMoq
+            moq: initialMoq,
+            canFulfill: true
           }
         ],
         suppliers: initialProduct.supplierName
@@ -81,7 +84,8 @@ export default function NewRequestPage() {
               {
                 id: initialProduct.sellerId || initialProduct.seller_id || prodId,
                 company_name: initialProduct.supplierName,
-                contact_name: initialProduct.supplierName
+                contact_name: initialProduct.supplierName,
+                can_fulfill: true
               }
             ]
           : []
@@ -103,7 +107,8 @@ export default function NewRequestPage() {
         item_name: initialProduct.name,
         quantity: initialMoq,
         moq: initialMoq,
-        stock: initialProduct.stock
+        stock: initialProduct.stock,
+        unitPrice: initialUnitPrice
       }
     ];
   });
@@ -235,11 +240,13 @@ export default function NewRequestPage() {
         originalProductName: i.item_name || '',
         item_name: i.item_name || '',
         quantity: i.quantity && !isNaN(Number(i.quantity)) && Number(i.quantity) > 0 ? parseInt(i.quantity, 10) : 1,
-        moq: i.moq || null
+        moq: i.moq || null,
+        unitPrice: i.unitPrice || null
       }));
 
       setItems(parsedItems.length > 0 ? parsedItems : [{ item_name: '', quantity: 1 }]);
       setTotalBudget(res.data.analysis?.total_budget || 100000);
+      setBudgetEditedByUser(Boolean(res.data.analysis?.has_explicit_budget));
       setDeadlineDays(res.data.analysis?.deadline_days || 7);
     } catch (err) {
       console.error('AI Analysis error:', err);
@@ -271,6 +278,21 @@ export default function NewRequestPage() {
     const updated = [...items];
     updated[index] = { ...updated[index], quantity: value };
     setItems(updated);
+
+    // If buyer has not manually overridden the budget and unit prices are known, scale suggested budget proportionally
+    if (!budgetEditedByUser) {
+      const estSum = updated.reduce((acc, it) => {
+        const q = parseInt(it.quantity, 10);
+        const uPrice = Number(it.unitPrice || (initialProduct && updated.length === 1 ? initialUnitPrice : 0));
+        if (!isNaN(q) && q > 0 && uPrice > 0) {
+          return acc + q * uPrice;
+        }
+        return acc;
+      }, 0);
+      if (estSum > 0) {
+        setTotalBudget(Math.max(estSum, 1000));
+      }
+    }
   };
 
   const handleAddItem = () => {
@@ -545,7 +567,10 @@ export default function NewRequestPage() {
                   type="number"
                   min={1}
                   value={totalBudget}
-                  onChange={(e) => setTotalBudget(e.target.value)}
+                  onChange={(e) => {
+                    setBudgetEditedByUser(true);
+                    setTotalBudget(e.target.value);
+                  }}
                   placeholder="Target budget"
                   className="w-full bg-white border border-[#EAE3D9] focus:border-[#7668D8] rounded-xl px-3 py-1.5 text-xs font-extrabold font-mono text-[#20284F] focus:outline-none"
                 />
@@ -626,17 +651,31 @@ export default function NewRequestPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {analysisResult.dbMatches?.suppliers?.map((sup) => (
-                    <div key={sup.id} className="p-3.5 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] flex items-center justify-between">
-                      <div>
-                        <div className="font-extrabold text-xs text-[#20284F]">{sup.company_name}</div>
-                        <div className="text-[11px] text-[#5A6588]">Contact: {sup.contact_name}</div>
+                  {analysisResult.dbMatches?.suppliers?.map((sup) => {
+                    const isSupplierFeasible = sup.can_fulfill !== false;
+                    return (
+                      <div key={sup.id} className="p-3.5 rounded-2xl bg-[#FAF6F0] border border-[#EAE3D9] space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-extrabold text-xs text-[#20284F]">{sup.company_name}</div>
+                            <div className="text-[11px] text-[#5A6588]">Contact: {sup.contact_name}</div>
+                          </div>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                            isSupplierFeasible
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {isSupplierFeasible ? 'Verified • Ready' : 'Policy Constraint'}
+                          </span>
+                        </div>
+                        {!isSupplierFeasible && sup.rejection_reasons?.length > 0 && (
+                          <div className="text-[11px] text-amber-800 bg-amber-50/70 border border-amber-200/70 rounded-xl px-2.5 py-1.5 font-medium">
+                            {sup.rejection_reasons[0]}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
-                        Verified
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

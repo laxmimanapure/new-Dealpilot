@@ -7,9 +7,10 @@ const Negotiation = require('../models/Negotiation');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const ProductRule = require('../models/ProductRule');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { parseBuyerPrompt } = require('../services/aiService');
-const { processRequirementMatchingAndNegotiation, matchProductToItem } = require('../services/negotiationEngine');
+const { processRequirementMatchingAndNegotiation, matchProductToItem, buildItemNegotiationProfile } = require('../services/negotiationEngine');
 const { logAuditEvent } = require('../services/auditService');
 const { getDefaultProductImage } = require('../seed');
 
@@ -180,8 +181,38 @@ router.post('/requests', async (req, res) => {
       }
     }
 
-    const activeProducts = await Product.find({ active: true }).lean();
+    const activeProducts = await Product.find({ active: { $ne: false } }).lean();
+    const allProductRules = activeProducts.length > 0
+      ? await ProductRule.find({ productId: { $in: activeProducts.map(p => p._id) } }).lean()
+      : [];
+    const ruleByProdId = {};
+    for (const r of allProductRules) {
+      if (r.productId) {
+        ruleByProdId[r.productId.toString()] = r;
+      }
+    }
 
+    const canProductFulfillQty = (prod, qty) => {
+      if (!prod) return false;
+      const pIdStr = prod._id ? prod._id.toString() : '';
+      const rawRule = ruleByProdId[pIdStr] || null;
+      const validRule = (
+        rawRule &&
+        (!rawRule.sellerId || !prod.sellerId || rawRule.sellerId.toString() === prod.sellerId.toString())
+      )
+        ? rawRule
+        : null;
+      const prof = buildItemNegotiationProfile(prod, validRule, qty);
+      return (
+        Number(prod.stock ?? 0) >= qty &&
+        qty >= prof.effectiveMOQ &&
+        (prof.maxQuantityRule === null || qty <= prof.maxQuantityRule) &&
+        prof.initialMarginPct >= prof.marginFloorPct &&
+        prof.effectiveMinAllowedPrice <= prof.totalListPrice
+      );
+    };
+
+    let estimatedItemsTotal = 0;
     let rawItems = hasExplicitItems ? providedItems : parsedResult.items;
     const finalItems = (rawItems || [])
       .map(i => {
@@ -195,12 +226,12 @@ router.post('/requests', async (req, res) => {
         let resolvedProduct = null;
         if (rawProductId && mongoose.Types.ObjectId.isValid(String(rawProductId))) {
           const byId = activeProducts.find(p => String(p._id) === String(rawProductId));
-          if (byId && (!itemName || matchProductToItem(itemName, byId).matches)) {
+          if (byId && (!itemName || itemName === 'Item' || matchProductToItem(itemName, byId).matches)) {
             resolvedProduct = byId;
           }
         }
 
-        if (!resolvedProduct && itemName) {
+        if ((!resolvedProduct || !canProductFulfillQty(resolvedProduct, quantity)) && itemName) {
           const candidates = activeProducts
             .map(p => {
               const res = matchProductToItem(itemName, p);
@@ -208,7 +239,7 @@ router.post('/requests', async (req, res) => {
                 product: p,
                 matches: res.matches,
                 score: res.score,
-                canFulfill: (p.stock || 0) >= quantity && quantity >= (p.moq || 1)
+                canFulfill: canProductFulfillQty(p, quantity)
               };
             })
             .filter(c => c.matches && c.score > 0)
@@ -217,23 +248,29 @@ router.post('/requests', async (req, res) => {
               if (b.score !== a.score) return b.score - a.score;
               return (a.product.price || 0) - (b.product.price || 0);
             });
-          if (candidates.length > 0) {
+          if (candidates.length > 0 && (!resolvedProduct || candidates[0].canFulfill)) {
             resolvedProduct = candidates[0].product;
           }
         }
 
+        // Preserve buyer/analysis item_name so generic multi-seller searches are not narrowed to a single seller's title
+        const preservedItemName = (itemName && itemName !== 'Item')
+          ? itemName
+          : (resolvedProduct ? resolvedProduct.name : itemName);
+
         const itemObj = {
-          item_name: resolvedProduct ? resolvedProduct.name : itemName,
+          item_name: preservedItemName,
           quantity,
           estimated_budget: estimatedBudget
         };
 
         if (resolvedProduct) {
           itemObj.productId = resolvedProduct._id;
-          itemObj.sellerId = (rawSellerId && mongoose.Types.ObjectId.isValid(String(rawSellerId)))
+          itemObj.sellerId = (rawSellerId && mongoose.Types.ObjectId.isValid(String(rawSellerId)) && String(resolvedProduct._id) === String(rawProductId))
             ? rawSellerId
             : resolvedProduct.sellerId;
           itemObj.category = resolvedProduct.category || rawCategory || null;
+          estimatedItemsTotal += Number(resolvedProduct.price || 0) * quantity;
         } else {
           if (rawProductId && mongoose.Types.ObjectId.isValid(String(rawProductId))) {
             itemObj.productId = rawProductId;
@@ -244,13 +281,17 @@ router.post('/requests', async (req, res) => {
           if (rawCategory) {
             itemObj.category = rawCategory;
           }
+          estimatedItemsTotal += 1500 * quantity;
         }
 
         return itemObj;
       })
       .filter(i => i.item_name.length > 0 && i.quantity >= 1);
 
-    const finalBudget = total_budget ? Number(total_budget) : (parsedResult.total_budget || 100000);
+    const defaultCalculatedBudget = (!parsedResult.has_explicit_budget && estimatedItemsTotal > (parsedResult.total_budget || 100000))
+      ? estimatedItemsTotal
+      : (parsedResult.total_budget || 100000);
+    const finalBudget = total_budget ? Number(total_budget) : defaultCalculatedBudget;
     const finalDeadline = deadline_days ? Number(deadline_days) : (parsedResult.deadline_days || 14);
 
     if (finalItems.length === 0) {

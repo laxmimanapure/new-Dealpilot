@@ -63,6 +63,7 @@ function fallbackParsePrompt(promptText) {
 
   // 1. Extract total budget
   let total_budget = 100000;
+  let has_explicit_budget = false;
   const budgetMatch =
     lowerText.match(/(?:total\s*)?(?:target\s*)?(?:budget|price|cost|limit|under|around|approx)\s*(?:of|is|:)?\s*₹?\s*([\d,]+)/i) ||
     lowerText.match(/₹\s*([\d,]+)/) ||
@@ -71,6 +72,7 @@ function fallbackParsePrompt(promptText) {
     const parsedB = parseFloat(budgetMatch[1].replace(/,/g, ''));
     if (!isNaN(parsedB) && parsedB > 0) {
       total_budget = parsedB;
+      has_explicit_budget = true;
     }
   }
 
@@ -172,6 +174,7 @@ function fallbackParsePrompt(promptText) {
     raw_prompt: promptText,
     parsed_summary: `Parsed ${items.length} requirement items with target budget of ₹${total_budget.toLocaleString('en-IN')} and ${deadline_days} days delivery window.`,
     total_budget,
+    has_explicit_budget,
     currency: 'INR',
     deadline_days,
     is_advance_payment,
@@ -185,6 +188,12 @@ function fallbackParsePrompt(promptText) {
 
 async function parseBuyerPrompt(promptText) {
   const geminiApiKey = process.env.GEMINI_API_KEY;
+  const lowerPrompt = String(promptText || '').toLowerCase();
+  const hasExplicitBudgetInText = Boolean(
+    lowerPrompt.match(/(?:total\s*)?(?:target\s*)?(?:budget|price|cost|limit|under|around|approx)\s*(?:of|is|:)?\s*₹?\s*([\d,]+)/i) ||
+    lowerPrompt.match(/₹\s*([\d,]+)/) ||
+    lowerPrompt.match(/([\d,]+)\s*(?:rs\.?|rupees|inr)\b/i)
+  );
 
   if (geminiApiKey) {
     const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
@@ -246,6 +255,7 @@ Return raw valid JSON only without markdown formatting.`;
               raw_prompt: promptText,
               parsed_summary: parsed.parsed_summary || `Parsed ${validItems.length} items from requirement.`,
               total_budget: parsed.total_budget || 100000,
+              has_explicit_budget: hasExplicitBudgetInText && Boolean(parsed.total_budget),
               currency: parsed.currency || 'INR',
               deadline_days: parsed.deadline_days || 7,
               is_advance_payment: Boolean(parsed.is_advance_payment),

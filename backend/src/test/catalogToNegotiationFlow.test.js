@@ -572,8 +572,336 @@ async function runTests() {
     }
   }
 
+  // =========================================================================
+  // TEST 7: Step 5 Comprehensive Regression Suite (Scenarios 1 through 7)
+  // =========================================================================
+  console.log('\n[Test 7] Step 5 Comprehensive Discovery-to-Negotiation Regression Scenarios (1-7)...');
+  {
+    resetStore();
+    const fs = require('fs');
+    const path = require('path');
+
+    const buyerId = new mongoose.Types.ObjectId('6ab253b2c693622238282008');
+    const sellerAId = new mongoose.Types.ObjectId('6ac5ed6c9029ec21769fbec5'); // OfficeGear Direct
+    const sellerBId = new mongoose.Types.ObjectId('6ac5ed6c9029ec21769fbecc'); // TechSupply Solutions
+    const sellerCId = new mongoose.Types.ObjectId('6ac5faf1dd1cdecea701cd10'); // furniture
+    const sellerDId = new mongoose.Types.ObjectId('6ac608a028fe68bb70628a1a'); // Logitech Gadgets Hub (low stock)
+    const sellerEId = new mongoose.Types.ObjectId('6ac5fcdddd1cdecea701cd14'); // Supplier B Electronics Ltd (Monitors only)
+
+    const buyer = { _id: buyerId, name: 'Laxmi Buyer', companyName: 'DealPilot Corp', email: 'buyer@dealpilot.in', role: 'buyer' };
+    const sellerA = { _id: sellerAId, name: 'Seller A', companyName: 'OfficeGear Direct', email: 'sellera@officegear.in', role: 'seller' };
+    const sellerB = { _id: sellerBId, name: 'Seller B', companyName: 'TechSupply Solutions', email: 'sellerb@techsupply.in', role: 'seller' };
+    const sellerC = { _id: sellerCId, name: 'Riyanka', companyName: 'furniture', email: 'riyanka@gmail.com', role: 'seller' };
+    const sellerD = { _id: sellerDId, name: 'Logitech Hub', companyName: 'Logitech Gadgets Hub', email: 'logi@hub.in', role: 'seller' };
+    const sellerE = { _id: sellerEId, name: 'Supplier B', companyName: 'Supplier B Electronics Ltd', email: 'supb@elec.in', role: 'seller' };
+
+    dbStore.users.push(buyer, sellerA, sellerB, sellerC, sellerD, sellerE);
+
+    // Products across suppliers with different prices, stock levels, and MOQs
+    const prodMouseA = {
+      _id: new mongoose.Types.ObjectId('6ac5ed6c9029ec21769fbec7'),
+      sellerId: sellerAId,
+      name: 'Wireless Precision Mouse',
+      category: 'Peripherals',
+      price: 1000,
+      costPrice: 650,
+      stock: 200,
+      moq: 5,
+      standardLeadTimeDays: 3,
+      active: true
+    };
+    const prodMouseB = {
+      _id: new mongoose.Types.ObjectId('6ac5ed6c9029ec21769fbece'),
+      sellerId: sellerBId,
+      name: 'Wireless Precision Mouse',
+      category: 'Peripherals',
+      price: 950,
+      costPrice: 600,
+      stock: 300,
+      moq: 10,
+      standardLeadTimeDays: 5,
+      active: true
+    };
+    const prodMouseC = {
+      _id: new mongoose.Types.ObjectId('6ac609f828fe68bb70628a25'),
+      sellerId: sellerCId,
+      name: 'mouse',
+      category: 'Peripherals',
+      price: 1000,
+      costPrice: 500,
+      stock: 100,
+      moq: 10,
+      standardLeadTimeDays: 3,
+      active: true
+    };
+    const prodMouseD = {
+      _id: new mongoose.Types.ObjectId('6ac608a128fe68bb70628a1c'),
+      sellerId: sellerDId,
+      name: 'Logitech Master Wireless Mouse',
+      category: 'Peripherals',
+      price: 4500,
+      costPrice: 3200,
+      stock: 40, // Below 50-unit request -> should be rejected for stock deficit
+      moq: 1,
+      standardLeadTimeDays: 3,
+      active: true
+    };
+    const prodMonitorE = {
+      _id: new mongoose.Types.ObjectId('6ac5fcdddd1cdecea701cd19'),
+      sellerId: sellerEId,
+      name: 'Supplier B Gaming Monitor',
+      category: 'Monitors',
+      price: 32000,
+      costPrice: 24000,
+      stock: 30,
+      moq: 1,
+      standardLeadTimeDays: 4,
+      active: true
+    };
+
+    dbStore.products.push(prodMouseA, prodMouseB, prodMouseC, prodMouseD, prodMonitorE);
+
+    dbStore.rules.push(
+      {
+        _id: new mongoose.Types.ObjectId(),
+        productId: prodMouseA._id,
+        sellerId: sellerAId,
+        minimumPrice: 800,
+        maximumDiscountPercent: 15,
+        maximumDiscountAmount: 25000,
+        marginFloorPercent: 10,
+        bulkDiscountRules: [{ minQuantity: 25, maxQuantity: 99, discountPercent: 5 }, { minQuantity: 100, maxQuantity: null, discountPercent: 8 }],
+        earlyPaymentDiscount: 2,
+        leadTimeExtensionDays: 5,
+        leadTimeExtraDiscount: 2,
+        negotiationEnabled: true
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        productId: prodMouseB._id,
+        sellerId: sellerBId,
+        minimumPrice: 760,
+        maximumDiscountPercent: 18,
+        maximumDiscountAmount: 30000,
+        marginFloorPercent: 8,
+        bulkDiscountRules: [{ minQuantity: 25, maxQuantity: 99, discountPercent: 6 }, { minQuantity: 100, maxQuantity: null, discountPercent: 10 }],
+        earlyPaymentDiscount: 3,
+        leadTimeExtensionDays: 5,
+        leadTimeExtraDiscount: 2.5,
+        negotiationEnabled: true
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        productId: prodMouseC._id,
+        sellerId: sellerCId,
+        minimumPrice: 850,
+        maximumDiscountPercent: 15,
+        maximumDiscountAmount: 20000,
+        marginFloorPercent: 8,
+        bulkDiscountRules: [{ minQuantity: 10, maxQuantity: 49, discountPercent: 3 }, { minQuantity: 50, maxQuantity: 200, discountPercent: 5 }],
+        earlyPaymentDiscount: 2,
+        leadTimeExtensionDays: 7,
+        leadTimeExtraDiscount: 1,
+        negotiationEnabled: true
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        productId: prodMouseD._id,
+        sellerId: sellerDId,
+        minimumPrice: 3825,
+        maximumDiscountPercent: 15,
+        maximumDiscountAmount: 20000,
+        marginFloorPercent: 8,
+        bulkDiscountRules: [{ minQuantity: 10, maxQuantity: 49, discountPercent: 3 }],
+        earlyPaymentDiscount: 2,
+        leadTimeExtensionDays: 7,
+        leadTimeExtraDiscount: 1,
+        negotiationEnabled: true
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        productId: prodMonitorE._id,
+        sellerId: sellerEId,
+        minimumPrice: 28000,
+        maximumDiscountPercent: 12,
+        maximumDiscountAmount: 40000,
+        marginFloorPercent: 8,
+        bulkDiscountRules: [{ minQuantity: 5, maxQuantity: 50, discountPercent: 5 }],
+        earlyPaymentDiscount: 2,
+        leadTimeExtensionDays: 7,
+        leadTimeExtraDiscount: 1,
+        negotiationEnabled: true
+      }
+    );
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/buyer', buyerRoutes);
+    app.use('/api/ai', aiRoutes);
+
+    const server = await new Promise(resolve => {
+      const s = app.listen(0, () => resolve(s));
+    });
+    const port = server.address().port;
+    const baseUrl = `http://127.0.0.1:${port}/api`;
+    const { JWT_SECRET } = require('../middleware/auth');
+    const token = jwt.sign(
+      { id: String(buyer._id), email: buyer.email, role: 'buyer', name: buyer.name },
+      JWT_SECRET
+    );
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    };
+
+    try {
+      // -----------------------------------------------------------------------
+      // Scenario 1: One valid supplier found during analysis and successfully matched
+      // -----------------------------------------------------------------------
+      console.log('  -> [Scenario 1] One valid supplier found during analysis ("5 Gaming Monitors") and matched...');
+      const analyze1Res = await fetch(`${baseUrl}/ai/analyze-procurement`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ promptText: 'I need 5 Gaming Monitors under ₹2,00,000 within 7 days' })
+      });
+      assert.strictEqual(analyze1Res.status, 200);
+      const analyze1Data = await analyze1Res.json();
+      assert.strictEqual(analyze1Data.dbMatches.suppliers.length, 1, 'Expected 1 matched supplier for Gaming Monitor');
+      assert.strictEqual(analyze1Data.dbMatches.suppliers[0].can_fulfill, true);
+      assert.strictEqual(String(analyze1Data.analysis.items[0].productId), String(prodMonitorE._id));
+
+      const create1Res = await fetch(`${baseUrl}/buyer/requests`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          promptText: 'I need 5 Gaming Monitors under ₹2,00,000 within 7 days',
+          total_budget: analyze1Data.analysis.total_budget,
+          deadline_days: analyze1Data.analysis.deadline_days,
+          items: analyze1Data.analysis.items
+        })
+      });
+      assert.strictEqual(create1Res.status, 201);
+      const create1Data = await create1Res.json();
+      const plans1Res = await fetch(`${baseUrl}/buyer/requests/${create1Data.requirement.id}/plans`, { headers });
+      const plans1Data = await plans1Res.json();
+      assert.strictEqual(plans1Data.plans.length, 1);
+      assert.strictEqual(plans1Data.plans[0].status, 'VALID');
+      assert.strictEqual(plans1Data.plans[0].seller_name, 'Supplier B Electronics Ltd');
+      console.log('     ✓ Scenario 1 Passed! 1 supplier discovered -> 1 VALID offer returned by plans API.');
+
+      // -----------------------------------------------------------------------
+      // Scenario 2, 3, 4 & 6:
+      // - Multiple valid suppliers producing multiple real offers (3 valid mouse suppliers)
+      // - Suppliers with different prices (₹950, ₹1000, ₹4500) and stock levels (300, 200, 100, 40)
+      // - Invalid supplier (Logitech Gadgets Hub, stock 40 < 50) rejected with specific reason
+      // - Valid offers saved in MongoDB and returned by the plans API
+      // -----------------------------------------------------------------------
+      console.log('  -> [Scenarios 2, 3, 4 & 6] Multiple suppliers ("50 mouse"), different prices/stock, invalid supplier rejected...');
+      const analyze2Res = await fetch(`${baseUrl}/ai/analyze-procurement`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ promptText: 'I need 50 mouse under ₹1,00,000 within 10 days' })
+      });
+      assert.strictEqual(analyze2Res.status, 200);
+      const analyze2Data = await analyze2Res.json();
+      assert.strictEqual(analyze2Data.dbMatches.suppliers.length, 4, 'Discovery must find all 4 mouse suppliers');
+      const feasibleSuppliers = analyze2Data.dbMatches.suppliers.filter(s => s.can_fulfill);
+      const infeasibleSuppliers = analyze2Data.dbMatches.suppliers.filter(s => !s.can_fulfill);
+      assert.strictEqual(feasibleSuppliers.length, 3, '3 suppliers can fulfill 50 mice');
+      assert.strictEqual(infeasibleSuppliers.length, 1, '1 supplier (Logitech Hub, stock 40) cannot fulfill 50 mice');
+      assert(infeasibleSuppliers[0].rejection_reasons[0].includes('Stock deficit'), 'Discovery must flag stock deficit on Logitech Hub');
+
+      const create2Res = await fetch(`${baseUrl}/buyer/requests`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          promptText: 'I need 50 mouse under ₹1,00,000 within 10 days',
+          total_budget: analyze2Data.analysis.total_budget,
+          deadline_days: analyze2Data.analysis.deadline_days,
+          items: analyze2Data.analysis.items
+        })
+      });
+      assert.strictEqual(create2Res.status, 201);
+      const create2Data = await create2Res.json();
+      assert.strictEqual(create2Data.offers_count, 4, 'Engine must persist 4 SellerOffer documents (3 VALID + 1 REJECTED)');
+
+      // Verify SellerOffer documents persisted in MongoDB store
+      const savedOffersInDb = dbStore.offers.filter(o => String(o.requirementId) === String(create2Data.requirement.id));
+      assert.strictEqual(savedOffersInDb.length, 4, 'All 4 SellerOffer documents saved in MongoDB');
+
+      const plans2Res = await fetch(`${baseUrl}/buyer/requests/${create2Data.requirement.id}/plans`, { headers });
+      assert.strictEqual(plans2Res.status, 200);
+      const plans2Data = await plans2Res.json();
+      assert.strictEqual(plans2Data.plans.length, 4, 'Plans API must return all 4 offers');
+
+      const validPlans2 = plans2Data.plans.filter(p => p.status === 'VALID');
+      const rejectedPlans2 = plans2Data.plans.filter(p => p.status === 'REJECTED');
+      assert.strictEqual(validPlans2.length, 3, 'All 3 valid mouse suppliers must produce VALID offers (including seller "furniture" with product "mouse")');
+      assert.strictEqual(rejectedPlans2.length, 1, 'Logitech Gadgets Hub must be REJECTED');
+      assert(
+        rejectedPlans2[0].rejection_reason.includes('Stock deficit: Requested 50 units of "Logitech Master Wireless Mouse", but seller "Logitech Gadgets Hub" only has 40 units in stock.'),
+        `Unexpected rejection reason: ${rejectedPlans2[0].rejection_reason}`
+      );
+      console.log('     ✓ Scenarios 2, 3, 4 & 6 Passed! 3 VALID offers (TechSupply, furniture, OfficeGear) + 1 REJECTED offer (Logitech Hub stock deficit).');
+
+      // -----------------------------------------------------------------------
+      // Scenario 5: Multi-product request with different suppliers for different items
+      // -----------------------------------------------------------------------
+      console.log('  -> [Scenario 5] Multi-product request ("20 mouse and 5 Gaming Monitors") across different suppliers...');
+      const create5Res = await fetch(`${baseUrl}/buyer/requests`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          promptText: 'I need 20 mouse and 5 Gaming Monitors under ₹2,50,000 within 10 days',
+          total_budget: 250000,
+          deadline_days: 10,
+          items: [
+            { item_name: 'Mouse', quantity: 20 },
+            { item_name: 'Gaming Monitor', quantity: 5 }
+          ]
+        })
+      });
+      assert.strictEqual(create5Res.status, 201);
+      const create5Data = await create5Res.json();
+      const plans5Res = await fetch(`${baseUrl}/buyer/requests/${create5Data.requirement.id}/plans`, { headers });
+      assert.strictEqual(plans5Res.status, 200);
+      const plans5Data = await plans5Res.json();
+      const validPlans5 = plans5Data.plans.filter(p => p.status === 'VALID');
+      assert(validPlans5.length >= 4, `Expected both Mouse suppliers and Monitor supplier to produce VALID offers, got ${validPlans5.length}`);
+      const monitorPlan = validPlans5.find(p => p.seller_name === 'Supplier B Electronics Ltd');
+      const mousePlan = validPlans5.find(p => p.seller_name === 'TechSupply Solutions');
+      assert(monitorPlan, 'Monitor supplier must produce a VALID offer for the monitor line item');
+      assert(mousePlan, 'Mouse supplier must produce a VALID offer for the mouse line item');
+      console.log('     ✓ Scenario 5 Passed! Multi-product request with different suppliers for different items produced VALID offers.');
+
+      // -----------------------------------------------------------------------
+      // Scenario 7: API failure displayed as an error instead of "No Matched Seller Deals"
+      // -----------------------------------------------------------------------
+      console.log('  -> [Scenario 7] API failure returns HTTP error & PlanComparisonPage renders error state instead of empty state...');
+      const nonExistentId = new mongoose.Types.ObjectId();
+      const errPlansRes = await fetch(`${baseUrl}/buyer/requests/${nonExistentId}/plans`, { headers });
+      assert.strictEqual(errPlansRes.status, 404, 'Non-existent requirement must return HTTP 404 error');
+      const errPlansData = await errPlansRes.json();
+      assert(errPlansData.error, 'Error response must include error message');
+
+      const planCompSource = fs.readFileSync(
+        path.resolve(__dirname, '../../../frontend/src/pages/PlanComparisonPage.jsx'),
+        'utf8'
+      );
+      assert(
+        planCompSource.includes('fetchError') &&
+        planCompSource.includes('Unable to Load Procurement Deals') &&
+        planCompSource.includes('Retry Loading Deals'),
+        'PlanComparisonPage.jsx must render dedicated fetchError banner instead of misleading "No Matched Seller Deals"'
+      );
+      console.log('     ✓ Scenario 7 Passed! API failure is surfaced as an explicit error state rather than "No Matched Seller Deals".');
+    } finally {
+      server.close();
+    }
+  }
+
   console.log('\n=========================================================================');
-  console.log('✅ ALL 6 CATALOG-TO-NEGOTIATION REGRESSION TESTS PASSED SUCCESSFULLY!');
+  console.log('✅ ALL 7 CATALOG-TO-NEGOTIATION REGRESSION TESTS PASSED SUCCESSFULLY!');
   console.log('=========================================================================\n');
 }
 

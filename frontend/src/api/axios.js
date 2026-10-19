@@ -2,8 +2,11 @@ import axios from 'axios';
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
 const isLocalDev =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+  (import.meta.env.DEV ||
+    (typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === '[::1]'))) &&
   import.meta.env.VITE_USE_REMOTE_API !== 'true';
 
 // Base API URL for Axios requests

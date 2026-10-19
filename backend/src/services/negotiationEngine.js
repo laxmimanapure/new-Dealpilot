@@ -620,6 +620,29 @@ async function processRequirementMatchingAndNegotiation(requirement) {
     return [];
   }
 
+  // Pre-load all ProductRules for activeProducts to ensure consistent policy evaluation
+  const allProductRules = await ProductRule.find({
+    productId: { $in: activeProducts.map(p => p._id) }
+  }).lean();
+  const ruleByProductId = {};
+  for (const r of allProductRules) {
+    if (r.productId) {
+      ruleByProductId[r.productId.toString()] = r;
+    }
+  }
+
+  const getValidatedRuleForProduct = (prod) => {
+    if (!prod || !prod._id) return null;
+    const rawRule = ruleByProductId[prod._id.toString()] || null;
+    if (
+      rawRule &&
+      (!rawRule.sellerId || !prod.sellerId || rawRule.sellerId.toString() === prod.sellerId.toString())
+    ) {
+      return rawRule;
+    }
+    return null;
+  };
+
   // Map products by sellerId string and by productId string
   const sellerProductMap = {};
   const productByIdMap = {};
@@ -679,13 +702,24 @@ async function processRequirementMatchingAndNegotiation(requirement) {
       const reqProdIdStr = (rItem.productId || rItem.product_id) ? String(rItem.productId || rItem.product_id) : null;
       const refProd = reqProdIdStr ? productByIdMap[reqProdIdStr] : null;
       const effectiveSearchName = rItem.item_name || refProd?.name || '';
+      const reqQty = Number(rItem.quantity || 1);
 
       const candidateMatches = sellerProds
         .map(p => {
           const pIdStr = p._id ? p._id.toString() : '';
+          const pRule = getValidatedRuleForProduct(p);
+          const pProf = buildItemNegotiationProfile(p, pRule, reqQty);
+          const canFulfill =
+            Number(p.stock ?? 0) >= reqQty &&
+            reqQty >= pProf.effectiveMOQ &&
+            (pProf.maxQuantityRule === null || reqQty <= pProf.maxQuantityRule) &&
+            pProf.initialMarginPct >= pProf.marginFloorPct &&
+            pProf.effectiveMinAllowedPrice <= pProf.totalListPrice;
+
           if (reqProdIdStr && pIdStr === reqProdIdStr) {
             return {
               prod: p,
+              canFulfill: canFulfill ? 1 : 0,
               res: { matches: true, score: 1000, isExactProductId: true }
             };
           }
@@ -696,20 +730,19 @@ async function processRequirementMatchingAndNegotiation(requirement) {
           const bestRes = refMatch.score > nameMatch.score ? refMatch : nameMatch;
           return {
             prod: p,
+            canFulfill: canFulfill ? 1 : 0,
             res: { ...bestRes, isExactProductId: false }
           };
         })
         .filter(m => m.res.matches)
         .sort((a, b) => {
-          // 1. Exact productId match takes top priority
+          // 1. Prefer candidate products that satisfy stock, MOQ, maxQuantity, and margin floor for the requested quantity
+          if (a.canFulfill !== b.canFulfill) {
+            return b.canFulfill - a.canFulfill;
+          }
+          // 2. Exact productId match takes priority when both have equal fulfillment status
           if (a.res.isExactProductId !== b.res.isExactProductId) {
             return a.res.isExactProductId ? -1 : 1;
-          }
-          // 2. Prefer candidate products that satisfy both stock and MOQ for the requested quantity
-          const aFulfill = (Number(a.prod.stock ?? 0) >= Number(rItem.quantity) && Number(rItem.quantity) >= Number(a.prod.moq || 1)) ? 1 : 0;
-          const bFulfill = (Number(b.prod.stock ?? 0) >= Number(rItem.quantity) && Number(rItem.quantity) >= Number(b.prod.moq || 1)) ? 1 : 0;
-          if (aFulfill !== bFulfill) {
-            return bFulfill - aFulfill;
           }
           // 3. Higher match score
           if (b.res.score !== a.res.score) {
@@ -728,32 +761,26 @@ async function processRequirementMatchingAndNegotiation(requirement) {
         continue;
       }
 
-      if (matchedProd.stock < rItem.quantity) {
+      if (matchedProd.stock < reqQty) {
         stockDeficitFound = true;
-        stockRejectionReason = `Stock deficit: Requested ${rItem.quantity} units of "${matchedProd.name}", but seller "${sellerName}" only has ${matchedProd.stock} units in stock.`;
+        stockRejectionReason = `Stock deficit: Requested ${reqQty} units of "${matchedProd.name}", but seller "${sellerName}" only has ${matchedProd.stock} units in stock.`;
         console.log(`   ❌ [Seller ${sellerName}] ${stockRejectionReason}`);
       }
 
-      const rawRule = await ProductRule.findOne({ productId: matchedProd._id }).lean();
-      const rule = (
-        rawRule &&
-        (!rawRule.sellerId || !matchedProd.sellerId || rawRule.sellerId.toString() === matchedProd.sellerId.toString())
-      )
-        ? rawRule
-        : null;
+      const rule = getValidatedRuleForProduct(matchedProd);
       if (rule && !sellerRulesMap[sId]) {
         sellerRulesMap[sId] = rule;
       }
 
-      const itemProfile = buildItemNegotiationProfile(matchedProd, rule, rItem.quantity);
+      const itemProfile = buildItemNegotiationProfile(matchedProd, rule, reqQty);
 
-      if (rItem.quantity < itemProfile.effectiveMOQ) {
+      if (reqQty < itemProfile.effectiveMOQ) {
         moqBreachFound = true;
-        moqRejectionReason = `MOQ breach: Requested quantity (${rItem.quantity}) is below minimum order quantity (MOQ: ${itemProfile.effectiveMOQ}) for product "${matchedProd.name}".`;
+        moqRejectionReason = `MOQ breach: Requested quantity (${reqQty}) is below minimum order quantity (MOQ: ${itemProfile.effectiveMOQ}) for product "${matchedProd.name}".`;
         console.log(`   ❌ [Seller ${sellerName}] ${moqRejectionReason}`);
-      } else if (itemProfile.maxQuantityRule !== null && rItem.quantity > itemProfile.maxQuantityRule) {
+      } else if (itemProfile.maxQuantityRule !== null && reqQty > itemProfile.maxQuantityRule) {
         moqBreachFound = true;
-        moqRejectionReason = `Maximum quantity breach: Requested quantity (${rItem.quantity}) exceeds seller maximum order quantity (${itemProfile.maxQuantityRule}) for product "${matchedProd.name}".`;
+        moqRejectionReason = `Maximum quantity breach: Requested quantity (${reqQty}) exceeds seller maximum order quantity (${itemProfile.maxQuantityRule}) for product "${matchedProd.name}".`;
         console.log(`   ❌ [Seller ${sellerName}] ${moqRejectionReason}`);
       }
 
@@ -776,17 +803,17 @@ async function processRequirementMatchingAndNegotiation(requirement) {
       continue;
     }
 
-    // Handle Stock Deficit, Missing Items, MOQ Breach, or Policy Margin Floor Breach
-    if (stockDeficitFound || missingItemFound || moqBreachFound || marginBreachFound) {
+    // Handle Stock Deficit, MOQ Breach, or Policy Margin Floor Breach on matched items
+    // Note: If a seller matches a subset of items in a multi-product request (missingItemFound is true, but matchedItems.length > 0)
+    // and passes all stock/MOQ/margin checks on the matched items, negotiate those matched items so multi-supplier requests succeed.
+    if (stockDeficitFound || moqBreachFound || marginBreachFound) {
       const rejReason = stockDeficitFound
         ? stockRejectionReason
-        : missingItemFound
-        ? missingItemReason
         : moqBreachFound
         ? moqRejectionReason
         : marginRejectionReason;
 
-      const leverName = stockDeficitFound || missingItemFound
+      const leverName = stockDeficitFound
         ? 'Catalog & Stock Validation'
         : moqBreachFound
         ? 'MOQ Validation Check'
@@ -916,6 +943,14 @@ async function processRequirementMatchingAndNegotiation(requirement) {
 
     const offerStatus = negResult.isAgreed ? 'VALID' : 'OVER_BUDGET';
 
+    const baseReasons = [
+      matchedItems.length === reqItems.length
+        ? `All ${matchedItems.length} requested item(s) verified against product MOQ & available stock`
+        : `Covers ${matchedItems.length} of ${reqItems.length} requested item(s) (${matchedItems.map(i => i.name).join(', ')}) — verified against MOQ & stock`,
+      `Within buyer target budget of ₹${requirement.targetBudget.toLocaleString('en-IN')}`,
+      `Seller margin floor, minimum price floor, and maximum discount caps verified`
+    ];
+
     const offer = await SellerOffer.create({
       requirementId: requirement._id,
       sellerId: seller._id,
@@ -942,7 +977,7 @@ async function processRequirementMatchingAndNegotiation(requirement) {
       discountBreakdown,
       isBestDeal: false,
       isFastestDelivery: false,
-      whyThisDeal: []
+      whyThisDeal: offerStatus === 'VALID' ? baseReasons : []
     });
 
     await Negotiation.create({
@@ -982,7 +1017,11 @@ async function processRequirementMatchingAndNegotiation(requirement) {
     const validOffers = generatedOffers.filter(o => o.status === 'VALID');
 
     if (validOffers.length > 0) {
-      const rankingResult = rankPlans(validOffers, sellerRulesMap);
+      // Prioritize offers that fulfill the highest number of requested items when selecting Best Deal / Fastest Delivery
+      const maxItemsCovered = Math.max(...validOffers.map(o => (o.items ? o.items.length : 0)));
+      const topCoverageValidOffers = validOffers.filter(o => (o.items ? o.items.length : 0) === maxItemsCovered);
+
+      const rankingResult = rankPlans(topCoverageValidOffers, sellerRulesMap);
       const lowestCostId = rankingResult.lowestCostPlan?.session_id?.toString();
       const fastestDeliveryId = rankingResult.fastestDeliveryPlan?.session_id?.toString();
 
@@ -1005,8 +1044,12 @@ async function processRequirementMatchingAndNegotiation(requirement) {
             ? 'Lowest Cost'
             : 'Fastest Delivery';
 
+          const coverageReason = offer.items.length === reqItems.length
+            ? `All ${offer.items.length} requested item(s) verified against product MOQ & available stock`
+            : `Covers ${offer.items.length} of ${reqItems.length} requested item(s) (${offer.items.map(i => i.name).join(', ')}) — verified against MOQ & stock`;
+
           const reasons = [
-            `All ${offer.items.length} requested item(s) verified against product MOQ & available stock`,
+            coverageReason,
             `Within buyer target budget of ₹${requirement.targetBudget.toLocaleString('en-IN')}`,
             `Seller margin floor, minimum price floor, and maximum discount caps verified`
           ];
@@ -1024,12 +1067,15 @@ async function processRequirementMatchingAndNegotiation(requirement) {
       }
     }
 
-    // Deterministic sort of all offers: VALID first, OVER_BUDGET second, REJECTED last; then by landedCost, negotiatedAmount, leadTimeDays
+    // Deterministic sort of all offers: VALID first, OVER_BUDGET second, REJECTED last; then by item coverage count, landedCost, negotiatedAmount, leadTimeDays
     const statusPriority = { VALID: 0, OVER_BUDGET: 1, REJECTED: 2 };
     generatedOffers.sort((a, b) => {
       const pa = statusPriority[a.status] ?? 3;
       const pb = statusPriority[b.status] ?? 3;
       if (pa !== pb) return pa - pb;
+      const ia = a.items ? a.items.length : 0;
+      const ib = b.items ? b.items.length : 0;
+      if (ia !== ib) return ib - ia;
       const la = a.landedCost ?? a.negotiatedAmount ?? 0;
       const lb = b.landedCost ?? b.negotiatedAmount ?? 0;
       if (la !== lb) return la - lb;
